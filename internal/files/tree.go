@@ -105,10 +105,52 @@ func (t *Tree) load(dir string) []string {
 		if di != dj {
 			return di
 		}
-		return strings.ToLower(filepath.Base(items[i])) < strings.ToLower(filepath.Base(items[j]))
+		return naturalLess(filepath.Base(items[i]), filepath.Base(items[j]))
 	})
 	t.cache[dir] = items
 	return items
+}
+
+// naturalLess compares names case-insensitively and orders digit runs by
+// their numeric value. Plain string comparison puts "10月" before "2月";
+// natural ordering keeps "1月, 2月, ..., 10月, 11月".
+func naturalLess(a, b string) bool {
+	ar, br := []rune(strings.ToLower(a)), []rune(strings.ToLower(b))
+	i, j := 0, 0
+	for ; i < len(ar) && j < len(br); {
+		if ar[i] >= '0' && ar[i] <= '9' && br[j] >= '0' && br[j] <= '9' {
+			ai, bi := i, j
+			for ai < len(ar) && ar[ai] == '0' {
+				ai++
+			}
+			for bi < len(br) && br[bi] == '0' {
+				bi++
+			}
+			an, bn := ai, bi
+			for an < len(ar) && ar[an] >= '0' && ar[an] <= '9' {
+				an++
+			}
+			for bn < len(br) && br[bn] >= '0' && br[bn] <= '9' {
+				bn++
+			}
+			if an-ai != bn-bi {
+				return an-ai < bn-bi
+			}
+			for k := 0; k < an-ai; k++ {
+				if ar[ai+k] != br[bi+k] {
+					return ar[ai+k] < br[bi+k]
+				}
+			}
+			i, j = an, bn
+			continue
+		}
+		if ar[i] != br[j] {
+			return ar[i] < br[j]
+		}
+		i++
+		j++
+	}
+	return len(ar)-i < len(br)-j
 }
 
 func shouldSkip(name string, showHidden bool) bool {
