@@ -12,8 +12,9 @@ import (
 // the choice, the guards and the summary.
 func (a *App) diffModal(c *ui.Context, t *ui.Theme) {
 	if !a.diffOpen {
-		// The dialog is gone: the snapshot, its buffers and the viewer's
-		// state go with it.
+		// The dialog is gone: the snapshot, its buffers, the chosen sides and
+		// the viewer's state go with it.
+		a.diffA, a.diffB = nil, nil
 		a.diff = nil
 		a.diffIdentical = false
 		a.diffFocus = false

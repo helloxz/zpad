@@ -9,12 +9,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/markdown"
 )
 
 const (
@@ -110,7 +112,7 @@ func (c *previewImageCache) put(url string, src ui.ImageSource) {
 	}
 	for c.bytes+size > previewImageCacheBytes && len(c.urls) > 0 {
 		oldest := c.urls[0]
-		c.urls = c.urls[1:]
+		c.urls = slices.Delete(c.urls, 0, 1)
 		if e, ok := c.entries[oldest]; ok {
 			c.bytes -= e.size
 			delete(c.entries, oldest)
@@ -119,6 +121,16 @@ func (c *previewImageCache) put(url string, src ui.ImageSource) {
 	c.urls = append(c.urls, url)
 	c.entries[url] = cachedPreviewImage{src: src, size: size}
 	c.bytes += size
+}
+
+// clear drops every cached remote image, as when the last Markdown document
+// closes.
+func (c *previewImageCache) clear() {
+	c.mu.Lock()
+	c.bytes = 0
+	c.urls = nil
+	c.entries = nil
+	c.mu.Unlock()
 }
 
 // loadPreviewImage loads one image of a Markdown preview: an address on the
@@ -133,7 +145,38 @@ func loadPreviewImage(dir, raw string) (ui.ImageSource, error) {
 	case strings.HasPrefix(raw, "http://"), strings.HasPrefix(raw, "https://"):
 		return loadRemoteImage(raw)
 	}
-	return markdown.FileImages(dir)(raw)
+	return loadLocalPreviewImage(dir, raw)
+}
+
+// loadLocalPreviewImage reads an image file relative to dir, enforcing the
+// same byte, pixel and display-side bounds as remote images so a local
+// high-resolution photo does not hold tens of megabytes in memory.
+func loadLocalPreviewImage(dir, raw string) (ui.ImageSource, error) {
+	if strings.Contains(raw, "://") || strings.HasPrefix(raw, "data:") {
+		return nil, os.ErrNotExist
+	}
+	path := strings.TrimPrefix(raw, "file:")
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, filepath.FromSlash(path))
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, os.ErrInvalid
+	}
+	if info.Size() > previewImageMaxBytes {
+		return nil, fmt.Errorf("image %q: over the limit of %d bytes", raw, previewImageMaxBytes)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(filepath.Ext(path), ".svg") {
+		return ui.ParseSVG(data)
+	}
+	return decodePreviewImage(data)
 }
 
 // loadRemoteImage downloads and decodes the image at raw. Markdown's view

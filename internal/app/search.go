@@ -66,14 +66,21 @@ type searchInput struct {
 	snap editor.Snapshot
 }
 
-// scanText finds the matches of query in text. It is pure, so the search
-// rules are tested without a window. limit bounds the matches returned;
-// one more than the caller keeps lets it tell that there were more.
-func scanText(text, query string, opt searchOptions, limit int) ([]textMatch, error) {
-	if query == "" || limit <= 0 {
-		return nil, nil
+// compiledSearch holds a precompiled query so scanning many open documents
+// compiles a regular expression or folds an ASCII needle only once.
+type compiledSearch struct {
+	query     string
+	needle    string
+	opt       searchOptions
+	re        *regexp.Regexp
+	asciiFold bool
+}
+
+func compileSearch(query string, opt searchOptions) (*compiledSearch, error) {
+	if query == "" {
+		return &compiledSearch{}, nil
 	}
-	var out []textMatch
+	cs := &compiledSearch{query: query, opt: opt}
 	if opt.regex {
 		pat := "(?m)" + query
 		if !opt.caseSensitive {
@@ -83,11 +90,35 @@ func scanText(text, query string, opt searchOptions, limit int) ([]textMatch, er
 		if err != nil {
 			return nil, err
 		}
-		for _, m := range re.FindAllStringIndex(text, limit) {
+		cs.re = re
+		return cs, nil
+	}
+	if opt.caseSensitive {
+		cs.needle = query
+		return cs, nil
+	}
+	if isASCII(query) {
+		cs.needle = asciiLower(query)
+		cs.asciiFold = true
+		return cs, nil
+	}
+	// Other letters have no simple byte fold: quote them into a
+	// case-insensitive expression, which RE2 matches by Unicode case.
+	cs.re = regexp.MustCompile("(?i)" + regexp.QuoteMeta(query))
+	return cs, nil
+}
+
+func (cs *compiledSearch) scan(text string, limit int) []textMatch {
+	if cs.query == "" || limit <= 0 {
+		return nil
+	}
+	if cs.re != nil {
+		var out []textMatch
+		for _, m := range cs.re.FindAllStringIndex(text, limit) {
 			if m[1] == m[0] {
 				continue
 			}
-			if opt.wholeWord && !wholeWordAt(text, m[0], m[1]) {
+			if cs.opt.wholeWord && !wholeWordAt(text, m[0], m[1]) {
 				continue
 			}
 			out = append(out, textMatch{m[0], m[1]})
@@ -95,45 +126,103 @@ func scanText(text, query string, opt searchOptions, limit int) ([]textMatch, er
 				break
 			}
 		}
-		return out, nil
+		return out
 	}
-
-	// A plain query, matching case: strings.Index walks the text once.
-	if opt.caseSensitive {
-		return plainMatches(text, query, query, opt.wholeWord, limit, strings.Index), nil
+	if cs.asciiFold {
+		return plainMatches(text, cs.query, cs.needle, cs.opt.wholeWord, limit, indexFoldASCII)
 	}
+	return plainMatches(text, cs.query, cs.needle, cs.opt.wholeWord, limit, strings.Index)
+}
 
-	// Case-insensitive ASCII: fold bytes as the scan goes, without a copy
-	// of the whole text to lower.
-	if isASCII(query) {
-		return plainMatches(text, query, asciiLower(query), opt.wholeWord, limit,
-			func(text, q string) int {
-				n := len(q)
-				for i := 0; i+n <= len(text); i++ {
-					if equalFoldASCII(text[i:i+n], q) {
-						return i
-					}
-				}
+// scanText finds the matches of query in text. It is pure, so the search
+// rules are tested without a window. limit bounds the matches returned;
+// one more than the caller keeps lets it tell that there were more.
+func scanText(text, query string, opt searchOptions, limit int) ([]textMatch, error) {
+	if query == "" || limit <= 0 {
+		return nil, nil
+	}
+	cs, err := compileSearch(query, opt)
+	if err != nil {
+		return nil, err
+	}
+	return cs.scan(text, limit), nil
+}
+
+// indexFoldASCII finds the first case-insensitive match of lower (an ASCII
+// lowercased needle) in text, jumping with SIMD strings.IndexByte on the
+// first byte's lower/upper pair rather than checking every byte offset.
+func indexFoldASCII(text, lower string) int {
+	n := len(lower)
+	if n == 0 {
+		return 0
+	}
+	if len(text) < n {
+		return -1
+	}
+	limit := len(text) - n + 1
+	lo := lower[0]
+	if lo < 'a' || lo > 'z' {
+		if n == 1 {
+			return strings.IndexByte(text, lo)
+		}
+		tail := lower[1:]
+		for off := 0; off < limit; {
+			i := strings.IndexByte(text[off:limit], lo)
+			if i < 0 {
 				return -1
-			}), nil
+			}
+			pos := off + i
+			if equalFoldASCII(text[pos+1:pos+n], tail) {
+				return pos
+			}
+			off = pos + 1
+		}
+		return -1
 	}
 
-	// Other letters have no simple byte fold: quote them into a
-	// case-insensitive expression, which RE2 matches by Unicode case.
-	re := regexp.MustCompile("(?i)" + regexp.QuoteMeta(query))
-	for _, m := range re.FindAllStringIndex(text, limit) {
-		if m[1] == m[0] {
-			continue
+	hi := lo - 32
+	if n == 1 {
+		i := strings.IndexByte(text, lo)
+		if i == 0 {
+			return 0
 		}
-		if opt.wholeWord && !wholeWordAt(text, m[0], m[1]) {
-			continue
+		end := len(text)
+		if i > 0 {
+			end = i
 		}
-		out = append(out, textMatch{m[0], m[1]})
-		if len(out) >= limit {
-			break
+		if j := strings.IndexByte(text[:end], hi); j >= 0 {
+			return j
 		}
+		return i
 	}
-	return out, nil
+
+	tail := lower[1:]
+	nextLo := -2 // -2 unknown, -1 absent
+	for off := 0; off < limit; {
+		if nextLo != -1 && nextLo < off {
+			if i := strings.IndexByte(text[off:limit], lo); i < 0 {
+				nextLo = -1
+			} else {
+				nextLo = off + i
+			}
+		}
+		pos := nextLo
+		end := limit
+		if pos >= 0 {
+			end = pos
+		}
+		if j := strings.IndexByte(text[off:end], hi); j >= 0 {
+			pos = off + j
+		}
+		if pos < 0 {
+			return -1
+		}
+		if equalFoldASCII(text[pos+1:pos+n], tail) {
+			return pos
+		}
+		off = pos + 1
+	}
+	return -1
 }
 
 // plainMatches walks text with index, which finds needle in a text, and
@@ -220,6 +309,16 @@ func equalFoldASCII(s, lower string) bool {
 // document: a header row, then its matches. It stops at the total cap or
 // when cancel closes, and reports whether it left matches out.
 func scanDocuments(inputs []searchInput, query string, opt searchOptions, cancel <-chan struct{}) (rows []searchRow, files int, err error, truncated bool) {
+	if len(inputs) == 0 || query == "" {
+		return nil, 0, nil, false
+	}
+	if cancelled(cancel) {
+		return nil, 0, nil, false
+	}
+	cs, compileErr := compileSearch(query, opt)
+	if compileErr != nil {
+		return nil, 0, compileErr, false
+	}
 	total := 0
 	for i, in := range inputs {
 		if cancelled(cancel) {
@@ -231,10 +330,7 @@ func scanDocuments(inputs []searchInput, query string, opt searchOptions, cancel
 		}
 		remaining := min(searchMaxPerFile, searchMaxTotal-total)
 		text := in.snap.String()
-		matches, scanErr := scanText(text, query, opt, remaining+1)
-		if scanErr != nil {
-			return rows, files, scanErr, truncated
-		}
+		matches := cs.scan(text, remaining+1)
 		if len(matches) == 0 {
 			continue
 		}
@@ -509,6 +605,7 @@ func (a *App) filterOpenRows(rows []searchRow) []searchRow {
 	for _, doc := range a.openDocuments() {
 		open[doc] = true
 	}
+	oldLen := len(rows)
 	out := rows[:0]
 	removing := false
 	for _, row := range rows {
@@ -520,6 +617,7 @@ func (a *App) filterOpenRows(rows []searchRow) []searchRow {
 		}
 		out = append(out, row)
 	}
+	clear(rows[len(out):oldLen])
 	return out
 }
 
@@ -636,6 +734,7 @@ func (a *App) pruneSearchDocument(doc *Document) {
 	if a.isOpenDocument(doc) {
 		return
 	}
+	oldLen := len(a.searchRows)
 	out := a.searchRows[:0]
 	removing := false
 	for _, row := range a.searchRows {
@@ -647,6 +746,7 @@ func (a *App) pruneSearchDocument(doc *Document) {
 		}
 		out = append(out, row)
 	}
+	clear(a.searchRows[len(out):oldLen])
 	a.searchRows = out
 	a.searchFiles = 0
 	for _, row := range a.searchRows {

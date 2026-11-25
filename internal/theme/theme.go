@@ -20,10 +20,12 @@ const (
 // The default light and dark themes keep the colors they always had; the
 // named themes are built from a handful of seed colors.
 type Definition struct {
-	ID   string
-	Name string
-	Dark bool
-	UI   *ui.Theme
+	ID         string
+	Name       string
+	Dark       bool
+	UI         *ui.Theme
+	FileTree   *ui.Theme
+	ResultList *ui.Theme
 	// Chrome colors the sidebar, the tab bar and the chosen tab.
 	Chrome Chrome
 	Code   *editor.Theme
@@ -140,6 +142,15 @@ func Inverse(t *ui.Theme) (fill, text ui.Color) {
 // faint, full-width wash rather than a filled accent, as VS Code's and
 // Zed's file trees, and its text keeps the normal color.
 func FileTree(t *ui.Theme) *ui.Theme {
+	if t != nil {
+		if d, ok := byUI[t]; ok {
+			return d.FileTree
+		}
+	}
+	return buildFileTreeTheme(t)
+}
+
+func buildFileTreeTheme(t *ui.Theme) *ui.Theme {
 	tree := *t
 	if t.Dark {
 		tree.Accent = ui.RGBA(255, 255, 255, 0.07)
@@ -155,7 +166,16 @@ func FileTree(t *ui.Theme) *ui.Theme {
 // ResultList returns the palette of the search results: the chosen row is
 // a faint wash too, so the highlight of the match inside it stays visible.
 func ResultList(t *ui.Theme) *ui.Theme {
-	list := FileTree(t)
+	if t != nil {
+		if d, ok := byUI[t]; ok {
+			return d.ResultList
+		}
+	}
+	return buildResultListTheme(t)
+}
+
+func buildResultListTheme(t *ui.Theme) *ui.Theme {
+	list := buildFileTreeTheme(t)
 	if t.Dark {
 		list.Accent = ui.RGBA(255, 255, 255, 0.1)
 	} else {
@@ -198,7 +218,15 @@ func defaultDefinition(id string, dark bool) *Definition {
 			ActiveTab: ui.Hex("#1B202B"),
 		}
 	}
-	return &Definition{ID: id, Dark: dark, UI: t, Chrome: chrome, Code: buildEditorTheme(t)}
+	return &Definition{
+		ID:         id,
+		Dark:       dark,
+		UI:         t,
+		FileTree:   buildFileTreeTheme(t),
+		ResultList: buildResultListTheme(t),
+		Chrome:     chrome,
+		Code:       buildEditorTheme(t),
+	}
 }
 
 func lightTheme() *ui.Theme {

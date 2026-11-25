@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"bytes"
+	"io"
 	"testing"
 )
 
@@ -145,6 +146,68 @@ func TestDecodeUTF16WithoutBOMExplicitly(t *testing.T) {
 		}
 		if got != "hello\nworld" {
 			t.Fatalf("%s without BOM: got %q", kind, got)
+		}
+	}
+}
+
+func TestEncodeStreamMatchesEncodeAcrossChunkSplits(t *testing.T) {
+	texts := []string{
+		"",
+		"hello\nworld\n",
+		"中文测试\r\n第二行\n𠀀四字节字符\n",
+	}
+	for _, kind := range All {
+		for _, text := range texts {
+			want, err := Encode(text, kind)
+			if err != nil {
+				t.Fatalf("Encode(%s): %v", kind, err)
+			}
+			// Feed one byte at a time to split every multi-byte UTF-8 rune.
+			var out bytes.Buffer
+			n, err := EncodeStream(&out, kind, func(w io.Writer) error {
+				for i := 0; i < len(text); i++ {
+					if _, err := w.Write([]byte{text[i]}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("EncodeStream(%s, %q): %v", kind, text, err)
+			}
+			if n != int64(len(want)) || !bytes.Equal(out.Bytes(), want) {
+				t.Fatalf("EncodeStream(%s, %q) = %d bytes %x, want %d bytes %x",
+					kind, text, n, out.Bytes(), len(want), want)
+			}
+		}
+	}
+
+	// Invalid UTF-8 must be rejected in every encoding.
+	for _, kind := range All {
+		var out bytes.Buffer
+		_, err := EncodeStream(&out, kind, func(w io.Writer) error {
+			_, err := w.Write([]byte{0xff, 0xfe, 'a'})
+			return err
+		})
+		if err == nil {
+			t.Fatalf("EncodeStream(%s) accepted invalid UTF-8", kind)
+		}
+	}
+}
+
+func TestDetectAndDecodeOwned(t *testing.T) {
+	for _, kind := range All {
+		want := "中文与 ASCII\n𠀀\n"
+		raw, err := Encode(want, kind)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, gotKind, err := DetectAndDecodeOwned(bytes.Clone(raw))
+		if err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+		if gotKind != kind || got != want {
+			t.Fatalf("%s: got (%q, %s), want (%q, %s)", kind, got, gotKind, want, kind)
 		}
 	}
 }

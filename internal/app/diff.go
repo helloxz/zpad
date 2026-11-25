@@ -155,7 +155,7 @@ func (a *App) diffChanged() {
 // could still show it, but the names above it would point at a tab that is
 // gone, so the user chooses again. The panel stays open.
 func (a *App) diffDocumentClosed(doc *Document) {
-	if !a.diffOpen || doc == nil {
+	if doc == nil {
 		return
 	}
 	changed := false
@@ -169,7 +169,9 @@ func (a *App) diffDocumentClosed(doc *Document) {
 	}
 	if changed {
 		a.diffChanged()
-		a.update()
+		if a.diffOpen {
+			a.update()
+		}
 	}
 }
 

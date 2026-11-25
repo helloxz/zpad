@@ -250,8 +250,23 @@ func (a *App) loadPaths(paths []string, paneIdx int) {
 				a.setWorkspace(dir)
 			})
 		}
+		maxBytes := maxFileBytes(maxMB)
 		for _, path := range files {
 			started := time.Now()
+			info, err := sniffOpenable(path)
+			if err != nil {
+				a.endLoading(path)
+				failures = append(failures, openFailure{filepath.Base(path), err.Error()})
+				continue
+			}
+			asked := false
+			if info.Size() > maxBytes {
+				if !a.confirmLargeFile(path, maxMB) {
+					a.endLoading(path)
+					continue
+				}
+				asked = true
+			}
 			doc, err := loadDocument(path, maxMB)
 			if err != nil {
 				a.endLoading(path)
@@ -261,17 +276,8 @@ func (a *App) loadPaths(paths []string, paneIdx int) {
 			log.Printf("open %s %s %d lines ro=%t %s", filepath.Base(path),
 				formatSize(doc.Size), doc.Buffer.LineCount(), doc.ReadOnly,
 				time.Since(started).Round(time.Millisecond))
-			if doc.ReadOnly {
-				res, err := mygo.Dialog.Message(mygo.MessageOptions{
-					Parent:        a.win,
-					Type:          mygo.MessageInfo,
-					Message:       locales.LargeFileQuestion(),
-					Detail:        filepath.Base(path) + " · " + locales.FileTooLarge(maxMB),
-					Buttons:       []string{locales.OpenReadOnly(), locales.Cancel()},
-					DefaultButton: 0,
-					CancelButton:  1,
-				})
-				if err != nil || res.Button != 0 {
+			if doc.ReadOnly && !asked {
+				if !a.confirmLargeFile(path, maxMB) {
 					a.endLoading(path)
 					continue
 				}
@@ -283,6 +289,19 @@ func (a *App) loadPaths(paths []string, paneIdx int) {
 		}
 		a.reportOpenFailures(failures)
 	}()
+}
+
+func (a *App) confirmLargeFile(path string, maxMB int) bool {
+	res, err := mygo.Dialog.Message(mygo.MessageOptions{
+		Parent:        a.win,
+		Type:          mygo.MessageInfo,
+		Message:       locales.LargeFileQuestion(),
+		Detail:        filepath.Base(path) + " · " + locales.FileTooLarge(maxMB),
+		Buttons:       []string{locales.OpenReadOnly(), locales.Cancel()},
+		DefaultButton: 0,
+		CancelButton:  1,
+	})
+	return err == nil && res.Button == 0
 }
 
 // NewFile adds an untitled document. The menu's CmdOrCtrl+N runs it with no
@@ -408,19 +427,20 @@ func (a *App) reloadAs(tab *Tab, kind encoding.Kind) {
 	path := tab.doc.Path
 	go func() {
 		started := time.Now()
-		doc, err := loadDocumentWith(path, kind, a.Settings.LargeFileMB)
+		loaded, err := readDocumentWith(path, kind, a.Settings.LargeFileMB)
 		if err != nil {
 			a.fail(locales.ReopenFailed(), err)
 			return
 		}
 		log.Printf("reload %s %s", filepath.Base(path), time.Since(started).Round(time.Millisecond))
 		a.onUI(func() {
-			tab.doc.Buffer.Reset(doc.Buffer.String())
-			tab.doc.setLanguage(path)
+			tab.doc.Buffer.Reset(loaded.text)
 			tab.doc.Encoding = kind
-			tab.doc.Size = doc.Size
-			tab.doc.ModTime = doc.ModTime
-			a.setDocReadOnly(tab.doc, doc.ReadOnly)
+			tab.doc.Size = loaded.size
+			tab.doc.ModTime = loaded.modTime
+			readOnly := loaded.size > loaded.maxBytes || tab.doc.Buffer.LineCount() > maxLines
+			a.setDocReadOnly(tab.doc, readOnly)
+			tab.doc.setLanguage(path)
 			tab.doc.Buffer.MarkSaved()
 			a.forgetDraft(tab.doc)
 			a.updateTitle()
@@ -435,6 +455,7 @@ func (a *App) SetLineEnding(eol string) {
 		return
 	}
 	tab.doc.Buffer.SetLineEnding(eol)
+	a.maybeWakeDraftLoop()
 	a.updateTitle()
 	a.update()
 }
@@ -604,14 +625,14 @@ func (a *App) saveTab(tab *Tab, saveAs bool, then func()) {
 		}
 
 		started := time.Now()
-		data, err := writeDocument(tab.doc, path)
+		written, err := writeDocument(tab.doc, path)
 		if err != nil {
 			// The dialog is the one to act on; a toast under it would say
 			// the same twice.
 			mygo.Dialog.Error(locales.SaveFailed(), path+": "+err.Error())
 			return
 		}
-		log.Printf("save %s %d bytes %s", filepath.Base(path), len(data),
+		log.Printf("save %s %d bytes %s", filepath.Base(path), written,
 			time.Since(started).Round(time.Millisecond))
 		var modTime time.Time
 		if info, statErr := os.Stat(path); statErr == nil {
@@ -620,15 +641,15 @@ func (a *App) saveTab(tab *Tab, saveAs bool, then func()) {
 		a.onUI(func() {
 			tab.doc.Path = path
 			tab.doc.ID = path
-			tab.doc.Size = int64(len(data))
+			tab.doc.Size = written
 			tab.doc.ModTime = modTime
+			if saveAs {
+				a.setDocReadOnly(tab.doc, false)
+			}
 			tab.doc.setLanguage(path)
 			a.clearPreviewIfNotMarkdown(tab.doc)
 			tab.doc.Buffer.MarkSaved()
 			a.forgetDraft(tab.doc)
-			if saveAs {
-				a.setDocReadOnly(tab.doc, false)
-			}
 			a.updateTitle()
 			if then != nil {
 				then()

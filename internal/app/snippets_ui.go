@@ -53,6 +53,12 @@ func (a *App) snippetsModal(c *ui.Context, t *ui.Theme) {
 			a.snippetFooter(c, t)
 		})
 	})
+	if !a.snippetsOpen && !a.snippetEditOpen && !a.groupEditOpen {
+		a.snippets = nil
+		a.snippetsQuery = ""
+		a.snippetsRows = nil
+		a.snippetCounts = nil
+	}
 }
 
 func (a *App) snippetSearchField(c *ui.Context, t *ui.Theme) {
@@ -421,6 +427,14 @@ func (a *App) snippetEditModal(c *ui.Context, t *ui.Theme) {
 			}
 		})
 	})
+	if !a.snippetEditOpen {
+		a.snippetEditName = ""
+		a.snippetEditBody = ""
+		a.snippetEditErr = ""
+		if !a.snippetsOpen && !a.groupEditOpen {
+			a.snippets = nil
+		}
+	}
 }
 
 // groupEditModal asks for a group's name.

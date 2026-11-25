@@ -18,6 +18,11 @@ func (a *App) RestoreSession() {
 		return
 	}
 	a.loadDraftsAtLaunch()
+	defer func() {
+		a.draftEntries = nil
+		a.draftByPath = nil
+		a.draftUsed = nil
+	}()
 
 	if !a.Settings.RestoreSession || !session.Exists(a.SettingsDir) {
 		if a.drafts != nil {

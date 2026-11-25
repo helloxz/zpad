@@ -19,6 +19,11 @@ const (
 	aboutXURL          = "https://x.com/xiaozblog"
 	aboutProductsURL   = "https://xphub.dev/"
 	aboutProductsZhURL = "https://xphub.dev/zh"
+
+	// aboutIconMaxSide caps the decoded About icon: it shows at 64×64 DIPs,
+	// so 256 pixels keeps it crisp up to a 4× display without holding a
+	// 1024×1024 RGBA buffer and its mipmaps.
+	aboutIconMaxSide = 256
 )
 
 // aboutProductsLink is the author's product page in the interface language,
@@ -50,7 +55,7 @@ func (a *App) readAboutIconData(data []byte) {
 	if len(data) == 0 {
 		return
 	}
-	icon, err := ui.DecodeBitmap(data)
+	icon, err := ui.DecodeBitmapScaled(data, aboutIconMaxSide)
 	if err != nil {
 		log.Printf("decode app icon: %v", err)
 		return
@@ -75,6 +80,7 @@ func (a *App) openAbout() {
 // because it names the terms rather than pointing anywhere.
 func (a *App) aboutModal(c *ui.Context, t *ui.Theme) {
 	if !a.aboutOpen {
+		a.aboutIcon = nil
 		return
 	}
 	ui.DialogBase(c, &a.aboutOpen, func(backdrop, panel ui.Element) {

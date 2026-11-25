@@ -136,8 +136,8 @@ func TestAboutIconLoads(t *testing.T) {
 	if a.aboutIcon == nil {
 		t.Fatal("resources/icon.png did not decode")
 	}
-	if w, h := ui.ImageSize(a.aboutIcon); w != 1024 || h != 1024 {
-		t.Fatalf("the app icon is %vx%v, want 1024x1024", w, h)
+	if w, h := ui.ImageSize(a.aboutIcon); w != aboutIconMaxSide || h != aboutIconMaxSide {
+		t.Fatalf("the app icon is %vx%v, want %dx%d", w, h, aboutIconMaxSide, aboutIconMaxSide)
 	}
 
 	a.aboutOpen = true
@@ -167,8 +167,8 @@ func TestAboutIconFromTheApp(t *testing.T) {
 	if a.aboutIcon == nil {
 		t.Fatal("the embedded icon did not decode")
 	}
-	if w, h := ui.ImageSize(a.aboutIcon); w != 1024 || h != 1024 {
-		t.Fatalf("the embedded icon is %vx%v, want 1024x1024", w, h)
+	if w, h := ui.ImageSize(a.aboutIcon); w != aboutIconMaxSide || h != aboutIconMaxSide {
+		t.Fatalf("the embedded icon is %vx%v, want %dx%d", w, h, aboutIconMaxSide, aboutIconMaxSide)
 	}
 
 	// Without one, the letter mark stays.

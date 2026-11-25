@@ -139,6 +139,23 @@ func (a *App) dropPreviewOptions(doc *Document) {
 		}
 	}
 	doc.md = nil
+	doc.mdThemeUI = nil
+	doc.previewText = ""
+	doc.previewLoaded = false
+	if !a.hasOpenMarkdownDoc() {
+		previewImages.clear()
+	}
+}
+
+func (a *App) hasOpenMarkdownDoc() bool {
+	for _, p := range []*Pane{&a.left, &a.right} {
+		for _, tab := range p.tabs {
+			if isMarkdownDoc(tab.doc) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // PreviewText returns the buffer's text, copied only when it has changed.
@@ -177,17 +194,24 @@ func (a *App) markdownOptions(doc *Document, t *ui.Theme) *markdown.Options {
 		opts.OnLink = func(raw string) { a.openMarkdownLink(doc, raw) }
 		doc.md = opts
 		doc.mdPath = doc.Path
+		doc.mdThemeUI = nil
 	}
-	previewTheme := markdown.DefaultTheme(t)
-	previewTheme.FontSize = a.Settings.FontSize + 2
-	previewTheme.LineHeight = 1.6
-	previewTheme.CodeFont = a.Settings.FontFamily
-	previewTheme.CodeColors = theme.EditorTheme(t)
-	// The component's default is 24em, which wraps a table cell after
-	// about 360 DIPs at the default size and leaves most of the reading
-	// width empty.
-	previewTheme.TableMaxColumn = markdownTableMaxPixels / previewTheme.FontSize
-	doc.md.Theme = previewTheme
+	if doc.md.Theme == nil || doc.mdThemeUI != t ||
+		doc.mdFontSize != a.Settings.FontSize || doc.mdFontFamily != a.Settings.FontFamily {
+		previewTheme := markdown.DefaultTheme(t)
+		previewTheme.FontSize = a.Settings.FontSize + 2
+		previewTheme.LineHeight = 1.6
+		previewTheme.CodeFont = a.Settings.FontFamily
+		previewTheme.CodeColors = theme.EditorTheme(t)
+		// The component's default is 24em, which wraps a table cell after
+		// about 360 DIPs at the default size and leaves most of the reading
+		// width empty.
+		previewTheme.TableMaxColumn = markdownTableMaxPixels / previewTheme.FontSize
+		doc.md.Theme = previewTheme
+		doc.mdThemeUI = t
+		doc.mdFontSize = a.Settings.FontSize
+		doc.mdFontFamily = a.Settings.FontFamily
+	}
 	return doc.md
 }
 

@@ -26,3 +26,11 @@ func TestBundledFontRegistered(t *testing.T) {
 	}
 	t.Fatal("JetBrains Mono is not listed as a monospaced family")
 }
+
+func TestBundledFontDataLivesOutsideHeap(t *testing.T) {
+	total := len(fontJetBrainsRegular) + len(fontJetBrainsBold) +
+		len(fontJetBrainsItalic) + len(fontJetBrainsBoldItalic)
+	if total < 1_000_000 {
+		t.Fatalf("bundled font data is %d bytes, want > 1 MB", total)
+	}
+}

@@ -210,9 +210,11 @@ func buildNamed(id, name string, dark bool, s seeds) *Definition {
 	t := buildUI(s, dark)
 	return &Definition{
 		ID: id, Name: name, Dark: dark,
-		UI:     t,
-		Chrome: s.chrome(),
-		Code:   buildCodeTheme(t, s),
+		UI:         t,
+		FileTree:   buildFileTreeTheme(t),
+		ResultList: buildResultListTheme(t),
+		Chrome:     s.chrome(),
+		Code:       buildCodeTheme(t, s),
 	}
 }
 

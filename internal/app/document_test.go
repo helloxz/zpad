@@ -34,9 +34,16 @@ func TestLoadAndSaveKeepsEncoding(t *testing.T) {
 		}
 
 		doc.Buffer.Set("更新后的内容\nnew text\n")
-		saved, err := writeDocument(doc, path)
+		written, err := writeDocument(doc, path)
 		if err != nil {
 			t.Fatalf("%s: save: %v", kind, err)
+		}
+		saved, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s: read saved: %v", kind, err)
+		}
+		if int64(len(saved)) != written {
+			t.Fatalf("%s: written %d, disk %d", kind, written, len(saved))
 		}
 		back, err := encoding.Decode(saved, kind)
 		if err != nil {
@@ -60,7 +67,10 @@ func TestLineEndingsPreservedAndConverted(t *testing.T) {
 	if got := doc.Buffer.LineEnding(); got != "\r\n" {
 		t.Fatalf("line ending %q, want CRLF", got)
 	}
-	data, err := writeDocument(doc, path)
+	if _, err := writeDocument(doc, path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +79,10 @@ func TestLineEndingsPreservedAndConverted(t *testing.T) {
 	}
 
 	doc.Buffer.SetLineEnding("\n")
-	data, err = writeDocument(doc, path)
+	if _, err := writeDocument(doc, path); err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +101,10 @@ func TestMixedLineEndingsPreserved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := writeDocument(doc, path)
+	if _, err := writeDocument(doc, path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

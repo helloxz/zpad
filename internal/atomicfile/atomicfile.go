@@ -4,10 +4,16 @@
 package atomicfile
 
 import (
+	"bufio"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
+
+var writerPool = sync.Pool{
+	New: func() any { return bufio.NewWriterSize(nil, 32<<10) },
+}
 
 // Write writes data to dir/name with mode 0600, for settings and session
 // files.
@@ -23,9 +29,9 @@ func WriteMode(dir, name string, data []byte, mode os.FileMode) error {
 	})
 }
 
-// WriteTo writes what fn writes to dir/name with mode, a chunk at a time
-// through a temporary file, so that a large text is written without a copy
-// of it in memory.
+// WriteTo writes what fn writes to dir/name with mode, buffered in 32 KB
+// blocks through a temporary file, so that a large text is written without a
+// copy of it in memory or a system call per rope chunk.
 func WriteTo(dir, name string, mode os.FileMode, fn func(io.Writer) error) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -41,7 +47,15 @@ func WriteTo(dir, name string, mode os.FileMode, fn func(io.Writer) error) error
 		}
 	}()
 
-	if err := fn(tmp); err != nil {
+	bw := writerPool.Get().(*bufio.Writer)
+	bw.Reset(tmp)
+	err = fn(bw)
+	if err == nil {
+		err = bw.Flush()
+	}
+	bw.Reset(nil)
+	writerPool.Put(bw)
+	if err != nil {
 		_ = tmp.Close()
 		return err
 	}
@@ -68,8 +82,17 @@ func WriteTo(dir, name string, mode os.FileMode, fn func(io.Writer) error) error
 // WriteFile writes data to path, keeping the file's directory and using
 // mode, or the mode of the file already there.
 func WriteFile(path string, data []byte, mode os.FileMode) error {
+	return WriteFileTo(path, mode, func(w io.Writer) error {
+		_, err := w.Write(data)
+		return err
+	})
+}
+
+// WriteFileTo streams what fn writes to path atomically, keeping the mode of
+// the file already there or using mode for a new file.
+func WriteFileTo(path string, mode os.FileMode, fn func(io.Writer) error) error {
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode().Perm()
 	}
-	return WriteMode(filepath.Dir(path), filepath.Base(path), data, mode)
+	return WriteTo(filepath.Dir(path), filepath.Base(path), mode, fn)
 }

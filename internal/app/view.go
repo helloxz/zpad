@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/helloxz/zpad/internal/encoding"
@@ -101,6 +103,7 @@ func (a *App) View(c *ui.Context) {
 			c.AddToast(t)
 		}
 		a.pendingToasts = nil
+		a.maybeWakeDraftLoop()
 	})
 }
 
@@ -523,11 +526,27 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 // treeDepth is how deep path sits in the workspace: 0 for an entry at the
 // workspace root, matching the indentation the rows draw.
 func (a *App) treeDepth(path string) int {
-	rel, err := filepath.Rel(a.tree.Root(), path)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	root := a.tree.Root()
+	if root == "" || len(path) <= len(root) || !strings.HasPrefix(path, root) {
 		return 0
 	}
-	return strings.Count(rel, string(filepath.Separator))
+	rest := path[len(root):]
+	if root[len(root)-1] != filepath.Separator {
+		if rest[0] != filepath.Separator {
+			return 0
+		}
+		rest = rest[1:]
+	}
+	if rest == "" {
+		return 0
+	}
+	depth := 0
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == filepath.Separator {
+			depth++
+		}
+	}
+	return depth
 }
 
 // toggleFolderAll opens path with every folder inside it, or closes them
@@ -748,8 +767,8 @@ func (a *App) tabBar(c *ui.Context, t *ui.Theme, index int, p *Pane) {
 			var rects []ui.Rect
 			area.Children(func() {
 				inner = ui.Row(c).Height(34).Children(func() {
-					for i, tab := range p.tabs {
-						rects = append(rects, a.tabItem(c, t, index, p, i, tab).Bounds())
+					for i := 0; i < len(p.tabs); i++ {
+						rects = append(rects, a.tabItem(c, t, index, p, i, p.tabs[i]).Bounds())
 					}
 					if !a.tabOverflow[index] {
 						a.newTabButton(c, t, index)
@@ -1348,30 +1367,70 @@ func eolLabel(eol string) string {
 }
 
 func cursorLabel(tab *Tab) string {
+	snap := tab.doc.Buffer.Snapshot()
+	version := snap.Version()
 	p := tab.state.CursorPos()
+	locale := i18n.Locale()
+	if tab.statusCursorOK && tab.statusCursorVer == version &&
+		tab.statusPos == p && tab.statusCursorLoc == locale {
+		return tab.statusCursor
+	}
 	line := 0
-	if p.Line >= 0 && p.Line < tab.doc.Buffer.LineCount() {
+	if p.Line >= 0 && p.Line < snap.LineCount() {
 		line = p.Line
 	}
-	text := tab.doc.Buffer.Line(line)
-	col := p.Col
-	if col > len(text) {
-		col = len(text)
-	}
-	return locales.LineColumn(line+1, utf8.RuneCountInString(text[:col])+1)
+	start := snap.LineStart(line)
+	end := snap.LineEnd(line)
+	col := max(0, min(p.Col, end-start))
+	label := locales.LineColumn(line+1, runeCountChunks(snap, start, start+col)+1)
+	tab.statusCursorOK = true
+	tab.statusCursorVer = version
+	tab.statusPos = p
+	tab.statusCursorLoc = locale
+	tab.statusCursor = label
+	return label
 }
 
 func selectionLabel(tab *Tab) string {
-	n := 0
-	for _, s := range tab.state.Selections() {
-		if !s.Empty() {
-			n += utf8.RuneCountInString(tab.doc.Buffer.Slice(s.Start(), s.End()))
-		}
-	}
-	if n == 0 {
+	sels := tab.state.Selections()
+	if len(sels) == 0 || (len(sels) == 1 && sels[0].Empty()) {
 		return ""
 	}
-	return locales.SelectedCount(n)
+	snap := tab.doc.Buffer.Snapshot()
+	version := snap.Version()
+	locale := i18n.Locale()
+	if tab.statusSelOK && tab.statusSelVer == version &&
+		tab.statusSelLoc == locale && slices.Equal(tab.statusSels, sels) {
+		return tab.statusSel
+	}
+	n := 0
+	for _, s := range sels {
+		if !s.Empty() {
+			n += runeCountChunks(snap, s.Start(), s.End())
+		}
+	}
+	label := ""
+	if n > 0 {
+		label = locales.SelectedCount(n)
+	}
+	tab.statusSelOK = true
+	tab.statusSelVer = version
+	tab.statusSelLoc = locale
+	tab.statusSels = append(tab.statusSels[:0], sels...)
+	tab.statusSel = label
+	return label
+}
+
+func runeCountChunks(snap editor.Snapshot, start, end int) int {
+	if end <= start {
+		return 0
+	}
+	n := 0
+	snap.Chunks(start, end, func(s string) bool {
+		n += utf8.RuneCountInString(s)
+		return true
+	})
+	return n
 }
 
 func formatSize(n int64) string {

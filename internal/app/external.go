@@ -94,7 +94,7 @@ func (a *App) findTab(doc *Document) *Tab {
 
 func (a *App) reloadExternal(doc *Document) {
 	started := time.Now()
-	loaded, err := loadDocumentWith(doc.Path, doc.Encoding, a.Settings.LargeFileMB)
+	loaded, err := readDocumentWith(doc.Path, doc.Encoding, a.Settings.LargeFileMB)
 	if err != nil {
 		a.fail(locales.ReopenFailed(), err)
 		return
@@ -105,12 +105,13 @@ func (a *App) reloadExternal(doc *Document) {
 		log.Printf("reload %s %s", filepath.Base(doc.Path), time.Since(started).Round(time.Millisecond))
 	}
 	a.onUI(func() {
-		doc.Buffer.Reset(loaded.Buffer.String())
+		doc.Buffer.Reset(loaded.text)
+		doc.Encoding = loaded.encoding
+		doc.Size = loaded.size
+		doc.ModTime = loaded.modTime
+		readOnly := loaded.size > loaded.maxBytes || doc.Buffer.LineCount() > maxLines
+		a.setDocReadOnly(doc, readOnly)
 		doc.setLanguage(doc.Path)
-		doc.Encoding = loaded.Encoding
-		doc.Size = loaded.Size
-		doc.ModTime = loaded.ModTime
-		a.setDocReadOnly(doc, loaded.ReadOnly)
 		doc.Buffer.MarkSaved()
 		a.forgetDraft(doc)
 		a.updateTitle()

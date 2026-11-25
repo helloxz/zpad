@@ -1,9 +1,9 @@
 package app
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
 	"github.com/helloxz/zpad/internal/atomicfile"
@@ -19,7 +20,12 @@ import (
 	"github.com/helloxz/zpad/locales"
 )
 
-const maxLines = 500_000
+const (
+	maxLines         = 500_000
+	maxHighlightLine = 128 << 10
+	gcDocumentBytes  = 10 << 20
+	sniffBytes       = 8192
+)
 
 // Document is an open file and the text the editor edits.
 type Document struct {
@@ -56,6 +62,9 @@ type Document struct {
 	// came from, and previewText caches the buffer at previewVersion.
 	md             *markdown.Options
 	mdPath         string
+	mdThemeUI      *ui.Theme
+	mdFontSize     float32
+	mdFontFamily   string
 	previewText    string
 	previewVersion uint64
 	previewLoaded  bool
@@ -77,104 +86,277 @@ func (d *Document) selectLanguage(lang *editor.Language) {
 	d.applyLanguage(lang, "untitled")
 }
 
-// applyLanguage gives the buffer lang, or none when the text is too long to
-// highlight, and remembers it for the status bar. name is what the log calls
-// the document.
+// applyLanguage gives the buffer lang, or none when the text is read-only,
+// too long or minified onto a huge single line, and remembers it for the
+// status bar. name is what the log calls the document.
 func (d *Document) applyLanguage(lang *editor.Language, name string) {
 	d.Language = lang
-	if lang != nil && d.Buffer.LineCount() > maxLines {
-		// A file that long is read-only anyway, and highlighting it would
-		// keep the highlighter busy for seconds as it scrolls.
-		log.Printf("no highlight: %s %d lines > %d (%s)", name,
-			d.Buffer.LineCount(), maxLines, lang.Name)
-		d.Buffer.SetLanguage(nil)
-		return
+	if lang != nil {
+		switch {
+		case d.Buffer.LineCount() > maxLines:
+			log.Printf("no highlight: %s %d lines > %d (%s)", name,
+				d.Buffer.LineCount(), maxLines, lang.Name)
+			d.Buffer.SetLanguage(nil)
+			return
+		case d.ReadOnly:
+			log.Printf("no highlight: %s %s read-only (%s)", name,
+				formatSize(int64(d.Buffer.Len())), lang.Name)
+			d.Buffer.SetLanguage(nil)
+			return
+		case hasLongLine(d.Buffer, maxHighlightLine):
+			log.Printf("no highlight: %s line > %d bytes (%s)", name,
+				maxHighlightLine, lang.Name)
+			d.Buffer.SetLanguage(nil)
+			return
+		}
 	}
 	d.Buffer.SetLanguage(lang)
 }
 
-// loadDocument reads a file and detects its encoding.
-func loadDocument(path string, maxMB int) (*Document, error) {
+// hasLongLine reports whether any line of buf exceeds limit bytes, walking
+// chunks without allocating strings.
+func hasLongLine(buf *editor.Buffer, limit int) bool {
+	if limit <= 0 || buf.Len() <= limit {
+		return false
+	}
+	snap := buf.Snapshot()
+	run := 0
+	found := false
+	snap.Chunks(0, snap.Len(), func(s string) bool {
+		if len(s) <= limit {
+			first := strings.IndexByte(s, '\n')
+			if first < 0 {
+				run += len(s)
+				if run > limit {
+					found = true
+					return false
+				}
+				return true
+			}
+			if run+first > limit {
+				found = true
+				return false
+			}
+			last := strings.LastIndexByte(s, '\n')
+			run = len(s) - 1 - last
+			return true
+		}
+		for {
+			i := strings.IndexByte(s, '\n')
+			if i < 0 {
+				run += len(s)
+				if run > limit {
+					found = true
+					return false
+				}
+				return true
+			}
+			if run+i > limit {
+				found = true
+				return false
+			}
+			run = 0
+			s = s[i+1:]
+		}
+	})
+	return found
+}
+
+// loadedText holds a file's decoded UTF-8 text and disk metadata before it
+// enters a buffer, so reloads update an existing buffer directly rather than
+// building and discarding a second one.
+type loadedText struct {
+	path     string
+	text     string
+	encoding encoding.Kind
+	size     int64
+	modTime  time.Time
+	maxBytes int64
+}
+
+func maxFileBytes(maxMB int) int64 {
 	if maxMB <= 0 {
 		maxMB = 20
 	}
-	maxBytes := int64(maxMB) << 20
+	return int64(maxMB) << 20
+}
+
+// sniffOpenable checks a file's metadata and first 8 KB without allocating or
+// reading the rest of the file, rejecting directories and binary files up
+// front before prompting about large files.
+func sniffOpenable(path string) (os.FileInfo, error) {
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs
 	}
-	info, err := os.Stat(path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	if info.IsDir() {
 		return nil, errors.New(locales.IsFolder())
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	var head [sniffBytes]byte
+	n, err := io.ReadFull(f, head[:])
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, err
 	}
-	kind, err := encoding.Detect(data)
-	if err != nil {
-		return nil, errors.New(locales.UnknownEncoding())
-	}
-	if kind != encoding.UTF16LE && kind != encoding.UTF16BE && isBinary(data) {
+	if !encoding.IsUTF16(head[:n]) && isBinary(head[:n]) {
 		return nil, errors.New(locales.BinaryFile())
 	}
-	doc, err := newDocument(path, data, kind, info.Size())
+	return info, nil
+}
+
+// readDocumentBytes opens path once, checks its first 8 KB on the stack to
+// reject binary files without reading the rest, and returns the owned file
+// bytes when it passes.
+func readDocumentBytes(path string, kindHint *encoding.Kind) (string, []byte, os.FileInfo, error) {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return "", nil, nil, err
+	}
+	if info.IsDir() {
+		return "", nil, nil, errors.New(locales.IsFolder())
+	}
+
+	var head [sniffBytes]byte
+	n, err := io.ReadFull(f, head[:])
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return "", nil, nil, err
+	}
+	utf16 := false
+	if kindHint != nil {
+		utf16 = *kindHint == encoding.UTF16LE || *kindHint == encoding.UTF16BE
+	} else {
+		utf16 = encoding.IsUTF16(head[:n])
+	}
+	if !utf16 && isBinary(head[:n]) {
+		return "", nil, nil, errors.New(locales.BinaryFile())
+	}
+
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		data := make([]byte, n)
+		copy(data, head[:n])
+		return path, data, info, nil
+	}
+
+	size := info.Size()
+	if size <= int64(n) {
+		rest, rerr := io.ReadAll(f)
+		if rerr != nil {
+			return "", nil, nil, rerr
+		}
+		data := make([]byte, n+len(rest))
+		copy(data, head[:n])
+		copy(data[n:], rest)
+		return path, data, info, nil
+	}
+
+	data := make([]byte, size)
+	copy(data, head[:n])
+	read := n
+	for read < len(data) {
+		k, rerr := f.Read(data[read:])
+		read += k
+		if rerr != nil {
+			if errors.Is(rerr, io.EOF) {
+				data = data[:read]
+				return path, data, info, nil
+			}
+			return "", nil, nil, rerr
+		}
+	}
+	// Read any bytes appended since Stat.
+	extra, rerr := io.ReadAll(f)
+	if rerr != nil {
+		return "", nil, nil, rerr
+	}
+	if len(extra) > 0 {
+		data = append(data, extra...)
+	}
+	return path, data, info, nil
+}
+
+// loadDocument reads a file and detects its encoding.
+func loadDocument(path string, maxMB int) (*Document, error) {
+	maxBytes := maxFileBytes(maxMB)
+	absPath, data, info, err := readDocumentBytes(path, nil)
 	if err != nil {
 		return nil, err
 	}
-	doc.ModTime = info.ModTime()
-	doc.ReadOnly = info.Size() > maxBytes || doc.Buffer.LineCount() > maxLines
+	text, kind, err := encoding.DetectAndDecodeOwned(data)
+	if err != nil {
+		if errors.Is(err, encoding.ErrUnknownEncoding) {
+			return nil, errors.New(locales.UnknownEncoding())
+		}
+		return nil, errors.New(locales.DecodeFailed())
+	}
+	size := int64(len(data))
+	doc := &Document{
+		ID:       absPath,
+		Path:     absPath,
+		Buffer:   editor.NewBuffer(text),
+		Encoding: kind,
+		Size:     size,
+		ModTime:  info.ModTime(),
+		DraftID:  draft.NewID(),
+	}
+	doc.ReadOnly = size > maxBytes || doc.Buffer.LineCount() > maxLines
+	doc.setLanguage(absPath)
 	return doc, nil
+}
+
+func readDocumentWith(path string, kind encoding.Kind, maxMB int) (loadedText, error) {
+	maxBytes := maxFileBytes(maxMB)
+	absPath, data, info, err := readDocumentBytes(path, &kind)
+	if err != nil {
+		return loadedText{}, err
+	}
+	text, err := encoding.DecodeOwned(data, kind)
+	if err != nil {
+		return loadedText{}, errors.New(locales.DecodeFailed())
+	}
+	return loadedText{
+		path:     absPath,
+		text:     text,
+		encoding: kind,
+		size:     int64(len(data)),
+		modTime:  info.ModTime(),
+		maxBytes: maxBytes,
+	}, nil
 }
 
 // loadDocumentWith reads a file again, interpreting its bytes as kind.
 func loadDocumentWith(path string, kind encoding.Kind, maxMB int) (*Document, error) {
-	if maxMB <= 0 {
-		maxMB = 20
-	}
-	maxBytes := int64(maxMB) << 20
-	if abs, err := filepath.Abs(path); err == nil {
-		path = abs
-	}
-	info, err := os.Stat(path)
+	loaded, err := readDocumentWith(path, kind, maxMB)
 	if err != nil {
 		return nil, err
-	}
-	if info.IsDir() {
-		return nil, errors.New(locales.IsFolder())
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	if kind != encoding.UTF16LE && kind != encoding.UTF16BE && isBinary(data) {
-		return nil, errors.New(locales.BinaryFile())
-	}
-	doc, err := newDocument(path, data, kind, info.Size())
-	if err != nil {
-		return nil, err
-	}
-	doc.ModTime = info.ModTime()
-	doc.ReadOnly = info.Size() > maxBytes || doc.Buffer.LineCount() > maxLines
-	return doc, nil
-}
-
-func newDocument(path string, data []byte, kind encoding.Kind, size int64) (*Document, error) {
-	text, err := encoding.Decode(data, kind)
-	if err != nil {
-		return nil, errors.New(locales.DecodeFailed())
 	}
 	doc := &Document{
-		ID:       path,
-		Path:     path,
-		Buffer:   editor.NewBuffer(text),
-		Encoding: kind,
-		Size:     size,
+		ID:       loaded.path,
+		Path:     loaded.path,
+		Buffer:   editor.NewBuffer(loaded.text),
+		Encoding: loaded.encoding,
+		Size:     loaded.size,
+		ModTime:  loaded.modTime,
 		DraftID:  draft.NewID(),
 	}
-	doc.setLanguage(path)
+	doc.ReadOnly = loaded.size > loaded.maxBytes || doc.Buffer.LineCount() > maxLines
+	doc.setLanguage(loaded.path)
 	return doc, nil
 }
 
@@ -254,45 +436,32 @@ func (d *Document) DisplayPath(root string) string {
 	return d.Path
 }
 
-// encoded returns the buffer as bytes in the document's encoding, with the
-// line endings the buffer remembers.
-func (d *Document) encoded() ([]byte, error) {
-	var utf8 bytes.Buffer
-	if _, err := d.Buffer.WriteTo(&utf8); err != nil {
-		return nil, err
-	}
-	text := utf8.String()
-	data, err := encoding.Encode(text, d.Encoding)
+// writeDocument streams d to path in its encoding and line endings, keeping
+// the file's mode when it exists and returning the bytes written.
+func writeDocument(d *Document, path string) (int64, error) {
+	snap := d.Buffer.Snapshot()
+	var written int64
+	err := atomicfile.WriteFileTo(path, 0o644, func(w io.Writer) error {
+		n, err := encoding.EncodeStream(w, d.Encoding, func(uw io.Writer) error {
+			_, err := snap.WriteTo(uw)
+			return err
+		})
+		written = n
+		return err
+	})
 	if err != nil {
-		return nil, errors.New(locales.InvalidEncoding())
+		if errors.Is(err, encoding.ErrInvalidEncoding) {
+			return 0, errors.New(locales.InvalidEncoding())
+		}
+		return 0, err
 	}
-	back, err := encoding.Decode(data, d.Encoding)
-	if err != nil || back != text {
-		return nil, errors.New(locales.InvalidEncoding())
-	}
-	return data, nil
-}
-
-// writeDocument writes d to path, keeping the file's mode when it exists.
-func writeDocument(d *Document, path string) ([]byte, error) {
-	data, err := d.encoded()
-	if err != nil {
-		return nil, err
-	}
-	mode := os.FileMode(0o644)
-	if info, err := os.Stat(path); err == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := atomicfile.WriteFile(path, data, mode); err != nil {
-		return nil, err
-	}
-	return data, nil
+	return written, nil
 }
 
 func isBinary(data []byte) bool {
 	n := len(data)
-	if n > 8192 {
-		n = 8192
+	if n > sniffBytes {
+		n = sniffBytes
 	}
 	for i := 0; i < n; i++ {
 		if data[i] == 0 {

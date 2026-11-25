@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -34,6 +35,20 @@ type Tab struct {
 	// editor; previewScroll keeps its place across that switch.
 	preview       bool
 	previewScroll ui.ScrollState
+
+	// Cached status bar labels, reused while the buffer version, cursor,
+	// selections and locale stay the same.
+	statusCursorOK  bool
+	statusCursorVer uint64
+	statusPos       editor.Pos
+	statusCursorLoc string
+	statusCursor    string
+
+	statusSelOK  bool
+	statusSelVer uint64
+	statusSelLoc string
+	statusSels   []editor.Selection
+	statusSel    string
 }
 
 // Pane is one side of the window: its tabs and the one chosen.
@@ -364,7 +379,7 @@ func (a *App) Attach(win *mygo.Window) {
 				a.draftLog(err)
 			}
 		}
-		a.startDraftLoop()
+		a.maybeWakeDraftLoop()
 	}
 	if len(a.pendingOpen) > 0 {
 		paths := a.pendingOpen
@@ -590,7 +605,7 @@ func (a *App) removeTab(paneIdx, i int) {
 		return
 	}
 	doc := p.tabs[i].doc
-	p.tabs = append(p.tabs[:i], p.tabs[i+1:]...)
+	p.tabs = slices.Delete(p.tabs, i, i+1)
 	switch {
 	case len(p.tabs) == 0:
 		p.active = -1
@@ -612,8 +627,26 @@ func (a *App) removeTab(paneIdx, i int) {
 	if a.findTab(doc) == nil {
 		// The last tab of the document: its recovery copy goes with it.
 		a.forgetDraft(doc)
+		if doc.Buffer.Len() >= gcDocumentBytes {
+			scheduleLargeDocGC()
+		}
 	}
 	a.updateTitle()
+}
+
+var largeDocGCPending atomic.Bool
+
+// scheduleLargeDocGC runs a single background garbage collection after a
+// multi-megabyte document closes, so Go's scavenger can return its pages to
+// the operating system promptly without blocking the UI thread.
+func scheduleLargeDocGC() {
+	if !largeDocGCPending.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer largeDocGCPending.Store(false)
+		runtime.GC()
+	}()
 }
 
 // collapseSplit closes the split when one of its panes has no tabs left,
@@ -727,7 +760,7 @@ func (a *App) moveTabAt(srcPane, idx, dstPane, to int) {
 		}
 	}
 
-	src.tabs = append(src.tabs[:idx], src.tabs[idx+1:]...)
+	src.tabs = slices.Delete(src.tabs, idx, idx+1)
 	switch {
 	case len(src.tabs) == 0:
 		src.active = -1
@@ -772,7 +805,7 @@ func (a *App) reorderTab(paneIdx, idx, to int) {
 		return
 	}
 	tab, chosen := p.tabs[idx], p.activeTab()
-	tabs := append(p.tabs[:idx], p.tabs[idx+1:]...)
+	tabs := slices.Delete(p.tabs, idx, idx+1)
 	if to > idx {
 		to--
 	}

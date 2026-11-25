@@ -242,7 +242,7 @@ func (a *App) saveDocsForClose(docs []*Document, then func()) {
 		type saved struct {
 			doc  *Document
 			path string
-			data []byte
+			size int64
 		}
 		var results []saved
 		for i, doc := range docs {
@@ -267,7 +267,7 @@ func (a *App) saveDocsForClose(docs []*Document, then func()) {
 				}
 				path = withExtension(p, exts[i])
 			}
-			data, err := writeDocument(doc, path)
+			written, err := writeDocument(doc, path)
 			if err != nil {
 				a.onUI(func() {
 					a.busy = false
@@ -276,13 +276,13 @@ func (a *App) saveDocsForClose(docs []*Document, then func()) {
 				mygo.Dialog.Error(locales.SaveFailed(), err.Error())
 				return
 			}
-			results = append(results, saved{doc: doc, path: path, data: data})
+			results = append(results, saved{doc: doc, path: path, size: written})
 		}
 		a.onUI(func() {
 			for _, r := range results {
 				r.doc.Path = r.path
 				r.doc.ID = r.path
-				r.doc.Size = int64(len(r.data))
+				r.doc.Size = r.size
 				r.doc.setLanguage(r.path)
 				r.doc.Buffer.MarkSaved()
 				a.forgetDraft(r.doc)

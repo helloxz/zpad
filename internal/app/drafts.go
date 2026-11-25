@@ -59,8 +59,8 @@ func (a *App) keepUnsavedChanged() {
 			return
 		}
 		a.loadDraftRestoreIndex()
-		a.startDraftLoop()
 		a.writeDrafts(true)
+		a.maybeWakeDraftLoop()
 		return
 	}
 	a.stopDraftLoop()
@@ -128,10 +128,48 @@ func (a *App) stopDraftLoop() {
 }
 
 func (a *App) draftTick() {
-	if a.drafts == nil {
+	if a.drafts == nil || !a.Settings.KeepUnsaved {
+		a.stopDraftLoop()
 		return
 	}
 	a.writeDrafts(false)
+	if !a.hasPendingDraftWork() {
+		a.stopDraftLoop()
+	}
+}
+
+// maybeWakeDraftLoop starts the 1s draft loop only when KeepUnsaved is on and
+// at least one open document has unsaved changes not yet backed up (or an
+// obsolete draft to clean up). While all documents are clean or already
+// backed up, no background ticker wakes the main thread.
+func (a *App) maybeWakeDraftLoop() {
+	if a.draftStop != nil || a.drafts == nil || a.win == nil || !a.Settings.KeepUnsaved {
+		return
+	}
+	if a.hasPendingDraftWork() {
+		a.startDraftLoop()
+	}
+}
+
+func (a *App) hasPendingDraftWork() bool {
+	if a.draftWriting {
+		return true
+	}
+	for _, p := range [2]*Pane{&a.left, &a.right} {
+		for _, tab := range p.tabs {
+			doc := tab.doc
+			if !a.draftNeeded(doc) {
+				if doc.draftExists {
+					return true
+				}
+				continue
+			}
+			if !doc.draftExists || doc.draftBacked != doc.Buffer.Version() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // writeDrafts writes the copies that are due: a second after the last
@@ -317,6 +355,11 @@ func (a *App) applyDraftResults(results []draftResult) {
 			}
 		}
 	}
+	if a.hasPendingDraftWork() {
+		a.maybeWakeDraftLoop()
+	} else {
+		a.stopDraftLoop()
+	}
 }
 
 // forgetDraft drops a document's recovery copy: it was saved, discarded or
@@ -377,6 +420,7 @@ func (a *App) draftLanguageChanged(doc *Document) {
 	if doc.draftSince.IsZero() {
 		doc.draftSince = doc.draftEditAt
 	}
+	a.maybeWakeDraftLoop()
 }
 
 func (a *App) draftLog(err error) {
@@ -497,18 +541,50 @@ func (a *App) attachDraft(doc *Document, e draft.Entry) bool {
 
 // sameDraftText reports whether a copy holds the text a document was loaded
 // with: it is then the copy of a save that happened after it was written.
+// Comparing chunk-by-chunk avoids copying the buffer or normalizing the whole
+// draft in memory.
 func sameDraftText(doc *Document, text string) bool {
-	return normalizeEOL(text) == doc.Buffer.String()
-}
-
-// normalizeEOL turns the line endings of a copy, which are the document's,
-// into the editor's own, which are all \n.
-func normalizeEOL(text string) string {
+	snap := doc.Buffer.Snapshot()
 	if !strings.ContainsRune(text, '\r') {
-		return text
+		if len(text) != snap.Len() {
+			return false
+		}
+		off := 0
+		same := true
+		snap.Chunks(0, snap.Len(), func(chunk string) bool {
+			if text[off:off+len(chunk)] != chunk {
+				same = false
+				return false
+			}
+			off += len(chunk)
+			return true
+		})
+		return same
 	}
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	return strings.ReplaceAll(text, "\r", "\n")
+	i := 0
+	same := true
+	snap.Chunks(0, snap.Len(), func(chunk string) bool {
+		for k := 0; k < len(chunk); k++ {
+			if i >= len(text) {
+				same = false
+				return false
+			}
+			b := text[i]
+			i++
+			if b == '\r' {
+				if i < len(text) && text[i] == '\n' {
+					i++
+				}
+				b = '\n'
+			}
+			if b != chunk[k] {
+				same = false
+				return false
+			}
+		}
+		return true
+	})
+	return same && i == len(text)
 }
 
 // restoreLeftoverDrafts opens the copies no session tab took: the app was

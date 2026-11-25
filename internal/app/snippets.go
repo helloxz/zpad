@@ -71,6 +71,7 @@ func (a *App) panelOpen() bool {
 // opening the panel starts the list afresh instead.
 func (a *App) closeSnippets() {
 	a.snippetsOpen = false
+	a.snippets = nil
 	a.snippetsQuery = ""
 	a.snippetsRows = nil
 	a.snippetCounts = nil
