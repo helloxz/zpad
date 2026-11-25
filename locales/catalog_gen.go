@@ -1676,6 +1676,76 @@ func (msgs Messages) AutoCloseDescription() string {
 	return Catalog.Format(msgs.locale, "autoCloseDescription", nil)
 }
 
+// VimMode says "Vim Mode (Experimental)"
+// in the language the app shows.
+func VimMode() string { return In(i18n.Locale()).VimMode() }
+
+// VimMode says "Vim Mode (Experimental)"
+// in the language of msgs.
+func (msgs Messages) VimMode() string {
+	return Catalog.Format(msgs.locale, "vimMode", nil)
+}
+
+// VimModeDescription says "Normal, insert and visual modes with Vim's motions, operators and text objects."
+// in the language the app shows.
+func VimModeDescription() string { return In(i18n.Locale()).VimModeDescription() }
+
+// VimModeDescription says "Normal, insert and visual modes with Vim's motions, operators and text objects."
+// in the language of msgs.
+func (msgs Messages) VimModeDescription() string {
+	return Catalog.Format(msgs.locale, "vimModeDescription", nil)
+}
+
+// VimNormal says "NORMAL"
+// in the language the app shows.
+func VimNormal() string { return In(i18n.Locale()).VimNormal() }
+
+// VimNormal says "NORMAL"
+// in the language of msgs.
+func (msgs Messages) VimNormal() string {
+	return Catalog.Format(msgs.locale, "vimNormal", nil)
+}
+
+// VimInsert says "INSERT"
+// in the language the app shows.
+func VimInsert() string { return In(i18n.Locale()).VimInsert() }
+
+// VimInsert says "INSERT"
+// in the language of msgs.
+func (msgs Messages) VimInsert() string {
+	return Catalog.Format(msgs.locale, "vimInsert", nil)
+}
+
+// VimVisual says "VISUAL"
+// in the language the app shows.
+func VimVisual() string { return In(i18n.Locale()).VimVisual() }
+
+// VimVisual says "VISUAL"
+// in the language of msgs.
+func (msgs Messages) VimVisual() string {
+	return Catalog.Format(msgs.locale, "vimVisual", nil)
+}
+
+// VimVisualLine says "V-LINE"
+// in the language the app shows.
+func VimVisualLine() string { return In(i18n.Locale()).VimVisualLine() }
+
+// VimVisualLine says "V-LINE"
+// in the language of msgs.
+func (msgs Messages) VimVisualLine() string {
+	return Catalog.Format(msgs.locale, "vimVisualLine", nil)
+}
+
+// VimCommand says "Vim command"
+// in the language the app shows.
+func VimCommand() string { return In(i18n.Locale()).VimCommand() }
+
+// VimCommand says "Vim command"
+// in the language of msgs.
+func (msgs Messages) VimCommand() string {
+	return Catalog.Format(msgs.locale, "vimCommand", nil)
+}
+
 // FilesSection says "Files"
 // in the language the app shows.
 func FilesSection() string { return In(i18n.Locale()).FilesSection() }

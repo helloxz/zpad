@@ -115,6 +115,9 @@ func (a *App) toggleTabPreview(tab *Tab) {
 	if !tab.preview {
 		a.dropPreviewOptions(tab.doc)
 	}
+	if tab.preview && tab.vim != nil {
+		tab.vim.Reset()
+	}
 	a.focusEditor = true
 	a.updateTitle()
 	a.update()

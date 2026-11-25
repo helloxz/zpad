@@ -24,6 +24,8 @@ func TestSettingsModalOpens(t *testing.T) {
 		locales.SoftWrapDescription(),
 		locales.ShowWhitespace(),
 		locales.ShowWhitespaceDescription(),
+		locales.VimMode(),
+		locales.VimModeDescription(),
 		locales.RestoreDefaults(),
 		locales.Done(),
 	} {

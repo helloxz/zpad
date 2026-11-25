@@ -320,7 +320,9 @@ func (a *App) settingsEditor(c *ui.Context, t *ui.Theme) {
 				})
 		})
 		a.switchSetting(c, t, locales.AutoClose(), locales.AutoCloseDescription(),
-			&a.Settings.AutoClose, true)
+			&a.Settings.AutoClose, false)
+		a.switchSettingAction(c, t, locales.VimMode(), locales.VimModeDescription(),
+			&a.Settings.VimMode, true, false, a.vimModeChanged)
 	})
 }
 

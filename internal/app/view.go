@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/helloxz/zpad/internal/encoding"
 	"github.com/helloxz/zpad/internal/theme"
+	"github.com/helloxz/zpad/internal/vim"
 	"github.com/helloxz/zpad/locales"
 )
 
@@ -23,6 +24,7 @@ const (
 
 // View builds the window: toolbar, sidebar and content, status bar.
 func (a *App) View(c *ui.Context) {
+	a.frame = c
 	if !a.viewLogged {
 		a.viewLogged = true
 		w, h := c.Size()
@@ -44,9 +46,16 @@ func (a *App) View(c *ui.Context) {
 		// Escape leaves a Markdown preview wherever the focus is: the
 		// preview keeps a scroll state rather than a cursor, so there is
 		// nothing else for it to cancel. Dialogs, menus and toasts over
-		// the window take the key first, as overlays.
-		if !a.searchOpen && c.Shortcut(0, ui.KeyEscape) && !c.ShortcutRepeated() {
-			if tab := a.activeTab(); tab != nil && tab.preview {
+		// the window take the key first, as overlays. A Vim editor takes
+		// Escape itself, as it leaves insert or visual mode.
+		if !a.searchOpen && !a.vimCmdOpen && c.Shortcut(0, ui.KeyEscape) && !c.ShortcutRepeated() {
+			tab := a.activeTab()
+			switch {
+			case a.Settings.VimMode && tab != nil && tab.vim != nil && !tab.preview && tab.state.Focused():
+				tab.vim.Key(vim.KeyEscape, &vimHost{a: a, tab: tab})
+				a.applyVimState(tab)
+				a.update()
+			case tab != nil && tab.preview:
 				a.toggleTabPreview(tab)
 			}
 		}
@@ -79,6 +88,7 @@ func (a *App) View(c *ui.Context) {
 				a.searchModal(c, t)
 			}
 		}
+		a.vimCommandModal(c, t)
 		for _, t := range a.pendingToasts {
 			c.AddToast(t)
 		}
@@ -1014,6 +1024,7 @@ func (a *App) configureEditor(tab *Tab, t *ui.Theme) {
 	st.ContextMenu = func(m *ui.Menu) {
 		a.editorContextMenu(tab, m)
 	}
+	a.configureVim(tab, st)
 }
 
 // whitespaceMode turns the setting into the editor's own choice of where
@@ -1127,6 +1138,9 @@ func (a *App) statusBar(c *ui.Context, t *ui.Theme) {
 			}
 
 			doc := tab.doc
+			if a.Settings.VimMode && tab.vim != nil && !tab.preview {
+				a.vimModeBadge(c, t, tab)
+			}
 			if a.loading > 0 {
 				ui.Text(c, locales.Opening()).FontSize(11).TextColor(t.Accent)
 			}

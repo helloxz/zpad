@@ -34,6 +34,9 @@ type Settings struct {
 	// selection | none | all | trailing.
 	Whitespace string `json:"whitespace"`
 	AutoClose  bool   `json:"autoClose"`
+	// VimMode makes every editor modal: normal, insert and visual modes,
+	// with Vim's motions and operators. It is off by default.
+	VimMode bool `json:"vimMode"`
 
 	DefaultEncoding string `json:"defaultEncoding"`   // utf-8 | utf-8-bom | utf-16le | utf-16be | gb18030
 	DefaultEOL      string `json:"defaultLineEnding"` // "\n" | "\r\n" | "\r"
@@ -67,6 +70,7 @@ func Default() Settings {
 		ShowGuides:  true,
 		Whitespace:  "selection",
 		AutoClose:   true,
+		VimMode:     false,
 
 		DefaultEncoding: "utf-8",
 		DefaultEOL:      "\n",

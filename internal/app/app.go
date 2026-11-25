@@ -17,6 +17,7 @@ import (
 	"github.com/helloxz/zpad/internal/files"
 	"github.com/helloxz/zpad/internal/settings"
 	"github.com/helloxz/zpad/internal/theme"
+	"github.com/helloxz/zpad/internal/vim"
 	"github.com/helloxz/zpad/locales"
 )
 
@@ -25,6 +26,9 @@ type Tab struct {
 	doc           *Document
 	state         *editor.State
 	pendingScroll *float64
+	// vim is the tab's modal state while Vim mode is on; nil when it is off
+	// or the tab has not been shown since it was turned on.
+	vim *vim.Session
 	// preview shows the document as rendered Markdown rather than in the
 	// editor; previewScroll keeps its place across that switch.
 	preview       bool
@@ -215,6 +219,18 @@ type App struct {
 	// button) before the panel can jump to a result.
 	searchRanFor     string
 	searchRanOptions searchOptions
+
+	// vimCmdOpen is the : or / command line at the bottom of the window,
+	// which vimCmdKind says is which and vimCmdValue holds; vimCmdFocus
+	// gives its field the keyboard once.
+	vimCmdOpen  bool
+	vimCmdKind  rune
+	vimCmdValue string
+	vimCmdFocus bool
+	vimCmdTab   *Tab
+	// frame is the context of the frame being built, for the clipboard the
+	// Vim session's yanks and deletes use from an input handler.
+	frame *ui.Context
 
 	closePromptOpen bool
 	allowClose      bool

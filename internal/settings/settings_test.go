@@ -29,6 +29,13 @@ func TestKeepUnsavedDefaultsOff(t *testing.T) {
 	}
 }
 
+// Vim mode is experimental: a first launch and an upgrade leave it off.
+func TestVimModeDefaultsOff(t *testing.T) {
+	if Default().VimMode {
+		t.Fatal("Vim mode is on by default")
+	}
+}
+
 // Whitespace shows within selections by default, as VS Code and Sublime do.
 func TestWhitespaceDefaultsToSelection(t *testing.T) {
 	if got := Default().Whitespace; got != "selection" {
