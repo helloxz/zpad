@@ -434,6 +434,15 @@
       }
     }
   },
+  "fileExceedsMax": "Files larger than {mb} MB cannot be opened",
+  "@fileExceedsMax": {
+    "placeholders": {
+      "mb": {
+        "type": "int",
+        "example": "200"
+      }
+    }
+  },
   "isFolder": "This is a folder",
   "binaryFile": "This is a binary file and cannot be edited as text",
   "unknownEncoding": "Could not detect the encoding, so the file cannot open as text.",

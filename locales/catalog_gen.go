@@ -2554,6 +2554,16 @@ func (msgs Messages) FileTooLarge(mb int) string {
 	return Catalog.Format(msgs.locale, "fileTooLarge", map[string]any{"mb": mb})
 }
 
+// FileExceedsMax says "Files larger than {mb} MB cannot be opened"
+// in the language the app shows.
+func FileExceedsMax(mb int) string { return In(i18n.Locale()).FileExceedsMax(mb) }
+
+// FileExceedsMax says "Files larger than {mb} MB cannot be opened"
+// in the language of msgs.
+func (msgs Messages) FileExceedsMax(mb int) string {
+	return Catalog.Format(msgs.locale, "fileExceedsMax", map[string]any{"mb": mb})
+}
+
 // IsFolder says "This is a folder"
 // in the language the app shows.
 func IsFolder() string { return In(i18n.Locale()).IsFolder() }

@@ -2,8 +2,10 @@ package app
 
 import (
 	"regexp"
+	"regexp/syntax"
 	"strings"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -74,6 +76,7 @@ type compiledSearch struct {
 	opt       searchOptions
 	re        *regexp.Regexp
 	asciiFold bool
+	lineSafe  bool
 }
 
 func compileSearch(query string, opt searchOptions) (*compiledSearch, error) {
@@ -91,8 +94,10 @@ func compileSearch(query string, opt searchOptions) (*compiledSearch, error) {
 			return nil, err
 		}
 		cs.re = re
+		cs.lineSafe = regexLineSafe(pat)
 		return cs, nil
 	}
+	cs.lineSafe = !strings.ContainsRune(query, '\n')
 	if opt.caseSensitive {
 		cs.needle = query
 		return cs, nil
@@ -106,6 +111,42 @@ func compileSearch(query string, opt searchOptions) (*compiledSearch, error) {
 	// case-insensitive expression, which RE2 matches by Unicode case.
 	cs.re = regexp.MustCompile("(?i)" + regexp.QuoteMeta(query))
 	return cs, nil
+}
+
+// regexLineSafe reports whether pat cannot match across a '\n' boundary and
+// uses no whole-text anchors (\A, \z), so scanning line-bounded chunks gives
+// the exact same matches as scanning the concatenated document.
+func regexLineSafe(pat string) bool {
+	ast, err := syntax.Parse(pat, syntax.Perl)
+	if err != nil {
+		return false
+	}
+	var ok func(r *syntax.Regexp) bool
+	ok = func(r *syntax.Regexp) bool {
+		switch r.Op {
+		case syntax.OpAnyChar, syntax.OpBeginText, syntax.OpEndText:
+			return false
+		case syntax.OpLiteral:
+			for _, ch := range r.Rune {
+				if ch == '\n' {
+					return false
+				}
+			}
+		case syntax.OpCharClass:
+			for i := 0; i+1 < len(r.Rune); i += 2 {
+				if r.Rune[i] <= '\n' && '\n' <= r.Rune[i+1] {
+					return false
+				}
+			}
+		}
+		for _, sub := range r.Sub {
+			if !ok(sub) {
+				return false
+			}
+		}
+		return true
+	}
+	return ok(ast)
 }
 
 func (cs *compiledSearch) scan(text string, limit int) []textMatch {
@@ -132,6 +173,87 @@ func (cs *compiledSearch) scan(text string, limit int) []textMatch {
 		return plainMatches(text, cs.query, cs.needle, cs.opt.wholeWord, limit, indexFoldASCII)
 	}
 	return plainMatches(text, cs.query, cs.needle, cs.opt.wholeWord, limit, strings.Index)
+}
+
+// scanSnapshot scans line-bounded slices directly from snap's 4 KB rope chunks
+// without materializing snap.String(), keeping only the trailing partial line
+// across chunk boundaries in carry.
+func (cs *compiledSearch) scanSnapshot(snap editor.Snapshot, limit int, cancel <-chan struct{}, carry []byte) ([]textMatch, bool, []byte) {
+	if cs.query == "" || limit <= 0 || snap.Len() == 0 {
+		return nil, false, carry[:0]
+	}
+	var out []textMatch
+	emitFrom := func(seg string, segStart int) bool {
+		for _, m := range cs.scan(seg, limit-len(out)) {
+			out = append(out, textMatch{segStart + m.start, segStart + m.end})
+			if len(out) >= limit {
+				return false
+			}
+		}
+		return true
+	}
+
+	carry = carry[:0]
+	carryStart := 0
+	chunkOff := 0
+	chunks := 0
+	done := false
+	wasCancelled := false
+
+	snap.Chunks(0, snap.Len(), func(chunk string) bool {
+		if chunks++; chunks&63 == 0 && cancelled(cancel) {
+			wasCancelled = true
+			return false
+		}
+		rest := chunk
+		restStart := chunkOff
+		chunkOff += len(chunk)
+
+		if len(carry) > 0 {
+			nl := strings.IndexByte(rest, '\n')
+			if nl < 0 {
+				carry = append(carry, rest...)
+				return true
+			}
+			carry = append(carry, rest[:nl]...)
+			if len(carry) > 0 && !emitFrom(unsafe.String(unsafe.SliceData(carry), len(carry)), carryStart) {
+				done = true
+				return false
+			}
+			carry = carry[:0]
+			rest = rest[nl+1:]
+			restStart += nl + 1
+		}
+
+		if len(rest) == 0 {
+			return true
+		}
+		lastNL := strings.LastIndexByte(rest, '\n')
+		if lastNL < 0 {
+			carryStart = restStart
+			carry = append(carry[:0], rest...)
+			return true
+		}
+		if lastNL > 0 {
+			if !emitFrom(rest[:lastNL], restStart) {
+				done = true
+				return false
+			}
+		}
+		if tail := rest[lastNL+1:]; len(tail) > 0 {
+			carryStart = restStart + lastNL + 1
+			carry = append(carry[:0], tail...)
+		}
+		return true
+	})
+
+	if wasCancelled {
+		return out, true, carry[:0]
+	}
+	if !done && len(carry) > 0 {
+		emitFrom(unsafe.String(unsafe.SliceData(carry), len(carry)), carryStart)
+	}
+	return out, false, carry[:0]
 }
 
 // scanText finds the matches of query in text. It is pure, so the search
@@ -320,6 +442,7 @@ func scanDocuments(inputs []searchInput, query string, opt searchOptions, cancel
 		return nil, 0, compileErr, false
 	}
 	total := 0
+	var carry []byte
 	for i, in := range inputs {
 		if cancelled(cancel) {
 			return rows, files, nil, truncated
@@ -329,8 +452,16 @@ func scanDocuments(inputs []searchInput, query string, opt searchOptions, cancel
 			break
 		}
 		remaining := min(searchMaxPerFile, searchMaxTotal-total)
-		text := in.snap.String()
-		matches := cs.scan(text, remaining+1)
+		var matches []textMatch
+		if cs.lineSafe {
+			var wasCancelled bool
+			matches, wasCancelled, carry = cs.scanSnapshot(in.snap, remaining+1, cancel, carry)
+			if wasCancelled {
+				return rows, files, nil, truncated
+			}
+		} else {
+			matches = cs.scan(in.snap.String(), remaining+1)
+		}
 		if len(matches) == 0 {
 			continue
 		}

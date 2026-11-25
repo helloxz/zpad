@@ -26,6 +26,23 @@ func (a *App) dirtyDocs() []*Document {
 
 func (a *App) hasDirty() bool { return len(a.dirtyDocs()) > 0 }
 
+// unbackedDirtyDocs returns modified documents that KeepUnsaved will not
+// preserve on disk (such as files past largeDegradeBytes), so closing the
+// window or quitting still asks to save them rather than losing edits.
+func (a *App) unbackedDirtyDocs() []*Document {
+	docs := a.dirtyDocs()
+	if !a.Settings.KeepUnsaved || a.drafts == nil {
+		return docs
+	}
+	var out []*Document
+	for _, doc := range docs {
+		if !a.draftNeeded(doc) {
+			out = append(out, doc)
+		}
+	}
+	return out
+}
+
 func (a *App) onWindowClose(e *mygo.CloseEvent) {
 	if a.allowClose {
 		a.saveSession()
@@ -37,9 +54,15 @@ func (a *App) onWindowClose(e *mygo.CloseEvent) {
 	}
 	if a.Settings.KeepUnsaved {
 		// The unsaved text stays in the recovery copies, to open again on
-		// the next launch: nothing to ask.
+		// the next launch: ask only about oversized files skipped by drafts.
 		a.flushDrafts()
-		a.saveSession()
+		unbacked := a.unbackedDirtyDocs()
+		if len(unbacked) == 0 {
+			a.saveSession()
+			return
+		}
+		e.PreventDefault()
+		a.requestCloseDocs("window", unbacked)
 		return
 	}
 	if !a.Settings.ConfirmClose || !a.hasDirty() {
@@ -55,6 +78,16 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 	if e.SessionEnding {
 		if a.Settings.KeepUnsaved {
 			a.flushDrafts()
+			for _, doc := range a.unbackedDirtyDocs() {
+				if doc.Path == "" {
+					continue
+				}
+				if _, err := writeDocument(doc, doc.Path); err != nil {
+					log.Printf("save %s on session end: %v", doc.Path, err)
+					continue
+				}
+				doc.Buffer.MarkSaved()
+			}
 		} else {
 			a.saveDirtySync()
 		}
@@ -73,7 +106,13 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 	}
 	if a.Settings.KeepUnsaved {
 		a.flushDrafts()
-		a.saveSession()
+		unbacked := a.unbackedDirtyDocs()
+		if len(unbacked) == 0 {
+			a.saveSession()
+			return
+		}
+		e.PreventDefault()
+		a.requestCloseDocs("quit", unbacked)
 		return
 	}
 	if !a.Settings.ConfirmClose || !a.hasDirty() {
@@ -85,10 +124,13 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 }
 
 func (a *App) requestClose(reason string) {
+	a.requestCloseDocs(reason, a.dirtyDocs())
+}
+
+func (a *App) requestCloseDocs(reason string, docs []*Document) {
 	if a.closePromptOpen || a.busy {
 		return
 	}
-	docs := a.dirtyDocs()
 	if len(docs) == 0 {
 		a.executeClose(reason)
 		return
@@ -116,7 +158,7 @@ func (a *App) requestClose(reason string) {
 		case 0:
 			a.onUI(func() {
 				a.closePromptOpen = false
-				a.saveAllForClose(reason)
+				a.saveDocsForClose(docs, func() { a.executeClose(reason) })
 			})
 		case 1:
 			a.onUI(func() {
@@ -210,10 +252,6 @@ func (a *App) removeTabsByPointer(paneIdx int, tabs []*Tab) {
 	}
 	a.saveSession()
 	a.update()
-}
-
-func (a *App) saveAllForClose(reason string) {
-	a.saveDocsForClose(a.dirtyDocs(), func() { a.executeClose(reason) })
 }
 
 // saveDocsForClose saves docs, asking where to save each untitled one, and

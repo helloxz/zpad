@@ -269,14 +269,18 @@ func (a *App) collectDraftJobs(now time.Time, force bool) []draftJob {
 }
 
 // draftNeeded reports whether a document's text belongs in a recovery copy:
-// an unsaved change, or the text of an untitled document. A read-only
-// document never changes.
+// an unsaved change, or the text of an untitled document. Read-only documents
+// never change, and documents past largeDegradeBytes skip periodic full-file
+// draft copies and prompt to save on close instead.
 func (a *App) draftNeeded(doc *Document) bool {
 	if doc == nil || doc.ReadOnly {
 		return false
 	}
 	if doc.Path == "" {
-		return doc.Buffer.Len() > 0
+		return doc.Buffer.Len() > 0 && doc.Buffer.Len() <= largeDegradeBytes
+	}
+	if doc.Size > largeDegradeBytes || doc.Buffer.Len() > largeDegradeBytes {
+		return false
 	}
 	return doc.Buffer.Modified()
 }

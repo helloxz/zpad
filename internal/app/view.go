@@ -1020,7 +1020,7 @@ func (a *App) newTabButton(c *ui.Context, t *ui.Theme, paneIdx int) {
 
 func (a *App) configureEditor(tab *Tab, t *ui.Theme) {
 	st := tab.state
-	st.SoftWrap = a.Settings.SoftWrap
+	st.SoftWrap = a.Settings.SoftWrap && !tab.doc.noSoftWrap()
 	st.ReadOnly = tab.doc.ReadOnly
 	switch a.Settings.LineNumbers {
 	case "relative":

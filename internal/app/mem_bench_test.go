@@ -311,6 +311,131 @@ func TestIndexFoldASCIIEdgeCases(t *testing.T) {
 	}
 }
 
+func TestHardMax200MBAnd100MBReadOnlyGuard(t *testing.T) {
+	dir := t.TempDir()
+
+	// 1. > 200 MB sparse file is rejected up front without reading the body.
+	overPath := filepath.Join(dir, "over200.log")
+	f, err := os.Create(overPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(hardMaxFileBytes + 1); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	_ = f.Close()
+
+	wantErr := locales.FileExceedsMax(hardMaxFileMB)
+	if _, err := sniffOpenable(overPath); err == nil || err.Error() != wantErr {
+		t.Fatalf("sniffOpenable(>200MB) err = %v, want %q", err, wantErr)
+	}
+	if _, err := loadDocument(overPath, 50); err == nil || err.Error() != wantErr {
+		t.Fatalf("loadDocument(>200MB) err = %v, want %q", err, wantErr)
+	}
+
+	// 2. Editable > 20 MB file (with LargeFileMB = 50) still skips highlight,
+	// soft wrap, and periodic full-file drafts, while remaining in unbackedDirtyDocs.
+	midGo := filepath.Join(dir, "mid21mb.go")
+	line := bytes.Repeat([]byte("var x = 1234567890 // padding to keep lines under 500k\n"), 2) // 110 B
+	if err := os.WriteFile(midGo, bytes.Repeat(line, 205_000), 0o644); err != nil {             // ~21.5 MB, 410k lines
+		t.Fatal(err)
+	}
+	s := settings.Default()
+	s.LargeFileMB = 50
+	s.SoftWrap = true
+	a := keepApp(t, dir)
+	a.Settings = s
+
+	doc, err := loadDocument(midGo, s.LargeFileMB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.ReadOnly {
+		t.Fatal("21.5 MB file with 50 MB threshold opened read-only")
+	}
+	if doc.Buffer.Language() != nil {
+		t.Fatal("file > 20 MB still enabled syntax highlighting")
+	}
+	if !doc.noSoftWrap() {
+		t.Fatal("file > 20 MB did not disable soft wrap")
+	}
+	a.addDocument(doc)
+	a.configureEditor(a.activeTab(), a.themeDefinition().UI)
+	if a.activeTab().state.SoftWrap {
+		t.Fatal("editor state kept SoftWrap on > 20 MB document")
+	}
+	doc.Buffer.Edit(editor.Edit{Start: 0, End: 0, Text: "// edited\n"})
+	if a.draftNeeded(doc) {
+		t.Fatal("draftNeeded returned true for > 20 MB file")
+	}
+	if got := a.unbackedDirtyDocs(); len(got) != 1 || got[0] != doc {
+		t.Fatalf("unbackedDirtyDocs = %v, want [doc]", got)
+	}
+}
+
+func TestStreamingChunkSearchMatchesFullTextAcrossBoundaries(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("first line alpha\nbeta second line\n")
+	// Cross multiple 4 KB rope chunks, including a >9 KB single line and boundary hits.
+	for i := range 120 {
+		b.WriteString(strings.Repeat("x", 97))
+		if i%17 == 0 {
+			b.WriteString(" TargetWord ÄRGER ")
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString(strings.Repeat("z", 9000) + " DeepLongLineHit " + strings.Repeat("z", 500) + "\n")
+	b.WriteString("tailTargetWithoutNewline")
+	full := b.String()
+
+	doc := docAt("/tmp/chunked.txt", full)
+	snap := doc.Buffer.Snapshot()
+	inputs := []searchInput{{doc: doc, snap: snap}}
+	cancel := make(chan struct{})
+
+	queries := []struct {
+		q   string
+		opt searchOptions
+	}{
+		{"targetword", searchOptions{}},
+		{"TargetWord", searchOptions{caseSensitive: true, wholeWord: true}},
+		{"ärger", searchOptions{wholeWord: true}},
+		{"DeepLongLineHit", searchOptions{caseSensitive: true}},
+		{"tailtargetwithoutnewline", searchOptions{}},
+		{`TargetWord\s+ÄRGER`, searchOptions{regex: true, caseSensitive: true}},
+		{`alpha\nbeta`, searchOptions{regex: true}}, // multi-line regex fallback
+	}
+
+	for _, tc := range queries {
+		want, err := scanText(full, tc.q, tc.opt, searchMaxPerFile+1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, _, err, _ := scanDocuments(inputs, tc.q, tc.opt, cancel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []textMatch
+		for _, r := range rows {
+			if !r.header {
+				got = append(got, textMatch{r.hit.start, r.hit.end})
+			}
+		}
+		if len(want) > searchMaxPerFile {
+			want = want[:searchMaxPerFile]
+		}
+		if len(got) != len(want) {
+			t.Fatalf("query %q (%+v): got %d hits, want %d", tc.q, tc.opt, len(got), len(want))
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("query %q hit[%d] = %+v, want %+v", tc.q, i, got[i], want[i])
+			}
+		}
+	}
+}
+
 func BenchmarkMemStatusBarSelectAll10MB(b *testing.B) {
 	line := bytes.Repeat([]byte("abcdefghij0123456789中文测试\n"), 4) // ~116 bytes
 	text := string(bytes.Repeat(line, 90_000))                    // ~10.4 MB

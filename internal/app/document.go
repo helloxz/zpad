@@ -21,10 +21,13 @@ import (
 )
 
 const (
-	maxLines         = 500_000
-	maxHighlightLine = 128 << 10
-	gcDocumentBytes  = 10 << 20
-	sniffBytes       = 8192
+	maxLines          = 500_000
+	maxHighlightLine  = 128 << 10
+	largeDegradeBytes = 20 << 20
+	hardMaxFileMB     = 200
+	hardMaxFileBytes  = int64(hardMaxFileMB) << 20
+	gcDocumentBytes   = 10 << 20
+	sniffBytes        = 8192
 )
 
 // Document is an open file and the text the editor edits.
@@ -103,6 +106,11 @@ func (d *Document) applyLanguage(lang *editor.Language, name string) {
 				formatSize(int64(d.Buffer.Len())), lang.Name)
 			d.Buffer.SetLanguage(nil)
 			return
+		case d.Buffer.Len() > largeDegradeBytes:
+			log.Printf("no highlight: %s %s > %s (%s)", name,
+				formatSize(int64(d.Buffer.Len())), formatSize(largeDegradeBytes), lang.Name)
+			d.Buffer.SetLanguage(nil)
+			return
 		case hasLongLine(d.Buffer, maxHighlightLine):
 			log.Printf("no highlight: %s line > %d bytes (%s)", name,
 				maxHighlightLine, lang.Name)
@@ -111,6 +119,13 @@ func (d *Document) applyLanguage(lang *editor.Language, name string) {
 		}
 	}
 	d.Buffer.SetLanguage(lang)
+}
+
+// noSoftWrap reports whether soft wrapping is skipped on d: read-only files
+// and files past the 20 MB / 500k-line threshold keep unwrapped lines to
+// avoid full-document width scans and per-line wrap tables.
+func (d *Document) noSoftWrap() bool {
+	return d.ReadOnly || d.Buffer.Len() > largeDegradeBytes || d.Buffer.LineCount() > maxLines
 }
 
 // hasLongLine reports whether any line of buf exceeds limit bytes, walking
@@ -201,6 +216,9 @@ func sniffOpenable(path string) (os.FileInfo, error) {
 	if info.IsDir() {
 		return nil, errors.New(locales.IsFolder())
 	}
+	if info.Size() > hardMaxFileBytes {
+		return nil, errors.New(locales.FileExceedsMax(hardMaxFileMB))
+	}
 	var head [sniffBytes]byte
 	n, err := io.ReadFull(f, head[:])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -232,6 +250,9 @@ func readDocumentBytes(path string, kindHint *encoding.Kind) (string, []byte, os
 	if info.IsDir() {
 		return "", nil, nil, errors.New(locales.IsFolder())
 	}
+	if info.Size() > hardMaxFileBytes {
+		return "", nil, nil, errors.New(locales.FileExceedsMax(hardMaxFileMB))
+	}
 
 	var head [sniffBytes]byte
 	n, err := io.ReadFull(f, head[:])
@@ -256,9 +277,12 @@ func readDocumentBytes(path string, kindHint *encoding.Kind) (string, []byte, os
 
 	size := info.Size()
 	if size <= int64(n) {
-		rest, rerr := io.ReadAll(f)
+		rest, rerr := io.ReadAll(io.LimitReader(f, hardMaxFileBytes-int64(n)+1))
 		if rerr != nil {
 			return "", nil, nil, rerr
+		}
+		if int64(n+len(rest)) > hardMaxFileBytes {
+			return "", nil, nil, errors.New(locales.FileExceedsMax(hardMaxFileMB))
 		}
 		data := make([]byte, n+len(rest))
 		copy(data, head[:n])
@@ -280,10 +304,14 @@ func readDocumentBytes(path string, kindHint *encoding.Kind) (string, []byte, os
 			return "", nil, nil, rerr
 		}
 	}
-	// Read any bytes appended since Stat.
-	extra, rerr := io.ReadAll(f)
+	// Read any bytes appended since Stat, bounded by hardMaxFileBytes.
+	limit := hardMaxFileBytes - int64(len(data))
+	extra, rerr := io.ReadAll(io.LimitReader(f, max(0, limit)+1))
 	if rerr != nil {
 		return "", nil, nil, rerr
+	}
+	if int64(len(data)+len(extra)) > hardMaxFileBytes {
+		return "", nil, nil, errors.New(locales.FileExceedsMax(hardMaxFileMB))
 	}
 	if len(extra) > 0 {
 		data = append(data, extra...)
