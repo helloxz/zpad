@@ -146,6 +146,12 @@ func (a *App) refreshSnippetRows() {
 	if a.snippetsSel < 0 && len(rows) > 0 {
 		a.snippetsSel = 0
 	}
+	// The list re-finds the item it remembers by key, and drops the choice
+	// when that item is not among the new rows, as it is not after a group
+	// switch: it would clear the choice just made here. Choose tells it that
+	// this is the app's choice, which it keeps.
+	a.snippetsList.Selected = &a.snippetsSel
+	a.snippetsList.Choose(a.snippetsSel)
 }
 
 // rowSnippet returns the snippet a row stands for.
@@ -649,6 +655,7 @@ func (a *App) applySnippetEdit() {
 	}
 	a.refreshSnippetRows()
 	a.selectSnippetRow(id)
+	a.snippetsFocus = true
 	a.update()
 }
 
@@ -718,6 +725,7 @@ func (a *App) deleteGroup(id string) {
 		a.selectGroup(chosen)
 	}
 	a.refreshSnippetRows()
+	a.snippetsFocus = true
 	a.update()
 }
 
@@ -771,6 +779,7 @@ func (a *App) deleteSnippet(groupID, id string) {
 		return
 	}
 	a.refreshSnippetRows()
+	a.snippetsFocus = true
 	a.update()
 }
 

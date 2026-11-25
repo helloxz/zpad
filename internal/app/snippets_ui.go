@@ -168,6 +168,9 @@ func (a *App) snippetGroupRow(c *ui.Context, t *ui.Theme, index int, name string
 	if b.Clicked() {
 		a.snippetsGroup = index
 		a.refreshSnippetRows()
+		// The click leaves the keyboard on the group: hand it back to the
+		// field, so that ↑↓ and ↵ work on the new list at once.
+		a.snippetsFocus = true
 		a.update()
 	}
 }

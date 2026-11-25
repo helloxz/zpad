@@ -972,3 +972,117 @@ func TestSnippetNameFromCutsALongLine(t *testing.T) {
 		t.Fatalf("name of %d characters, want %d", n, snippets.MaxNameRunes)
 	}
 }
+
+func TestSnippetGroupSwitchKeepsTheFirstRowChosen(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	if len(a.snippetsRows) != 2 || a.snippetsSel != 0 {
+		t.Fatalf("rows %#v, choice %d", a.snippetsRows, a.snippetsSel)
+	}
+
+	// The chosen row was the first of the all view: the same index as the
+	// first row of the group switched to, which the list used to follow by
+	// its old item and so clear.
+	a.snippetsGroup = 1
+	a.refreshSnippetRows()
+	if a.snippetsSel != 0 {
+		t.Fatalf("choice %d right after the switch", a.snippetsSel)
+	}
+	for range 2 {
+		tt.Frame()
+	}
+	if a.snippetsSel != 0 {
+		t.Fatalf("choice %d after the frames: the list dropped it", a.snippetsSel)
+	}
+	sn, gi, ok := a.selectedSnippet()
+	if !ok || sn.Name != "image" || gi != 1 {
+		t.Fatalf("chosen %#v in group %d", sn, gi)
+	}
+
+	// Enter inserts it, so the choice is a working one.
+	tt.Key(0, ui.KeyEnter)
+	tt.Frame()
+	if got := a.activeTab().doc.Buffer.String(); got != "![alt](url)one\ntwo" {
+		t.Fatalf("buffer %q", got)
+	}
+}
+
+func TestSnippetDeleteKeepsASelection(t *testing.T) {
+	a, _, groups := snippetApp(t)
+	g := groups[0]
+	if _, err := a.snippets.AddSnippet(g.ID, "second", "x"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+
+	a.snippetsSel = 1
+	first, _, _ := a.snippetAt(0)
+	a.deleteSnippet(g.ID, first.ID)
+	for range 2 {
+		tt.Frame()
+	}
+	if a.snippetsSel != 0 {
+		t.Fatalf("choice %d after the delete", a.snippetsSel)
+	}
+	if sn, _, ok := a.selectedSnippet(); !ok || sn.Name != "second" {
+		t.Fatalf("chosen %#v", sn)
+	}
+}
+
+func TestSnippetGroupClickGivesTheKeyboardBack(t *testing.T) {
+	a, tab, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+
+	if err := tt.Click("Markdown"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.snippetsGroup != 1 {
+		t.Fatalf("group %d: the click did not choose the group", a.snippetsGroup)
+	}
+	if got := tab.doc.Buffer.String(); got != "one\ntwo" {
+		t.Fatalf("buffer %q: the click inserted a snippet", got)
+	}
+	if !tt.Focused(locales.SnippetSearchLabel()) {
+		t.Fatalf("the field did not take the keyboard back; texts %q", tt.Texts())
+	}
+}
