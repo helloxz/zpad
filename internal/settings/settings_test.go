@@ -29,6 +29,13 @@ func TestKeepUnsavedDefaultsOff(t *testing.T) {
 	}
 }
 
+// Whitespace shows within selections by default, as VS Code and Sublime do.
+func TestWhitespaceDefaultsToSelection(t *testing.T) {
+	if got := Default().Whitespace; got != "selection" {
+		t.Fatalf("whitespace %q by default, want selection", got)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	want := Default()
@@ -41,6 +48,7 @@ func TestRoundTrip(t *testing.T) {
 	want.TabSize = 2
 	want.UseTabs = true
 	want.ShowGuides = true
+	want.Whitespace = "all"
 	want.AutoClose = false
 	want.DefaultEncoding = "gb18030"
 	want.DefaultEOL = "\r\n"
@@ -117,6 +125,7 @@ func TestNormalizeClampsOutOfRangeValues(t *testing.T) {
 	bad.FontSize = 99
 	bad.LineHeight = -1
 	bad.TabSize = 3
+	bad.Whitespace = "everything"
 	bad.DefaultEncoding = "latin-1"
 	bad.DefaultEOL = "\r\r"
 	bad.LargeFileMB = 999

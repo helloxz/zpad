@@ -30,7 +30,10 @@ type Settings struct {
 	TabSize     int    `json:"tabSize"`
 	UseTabs     bool   `json:"useTabs"`
 	ShowGuides  bool   `json:"showGuides"`
-	AutoClose   bool   `json:"autoClose"`
+	// Whitespace says where spaces show as dots and tabs as arrows:
+	// selection | none | all | trailing.
+	Whitespace string `json:"whitespace"`
+	AutoClose  bool   `json:"autoClose"`
 
 	DefaultEncoding string `json:"defaultEncoding"`   // utf-8 | utf-8-bom | utf-16le | utf-16be | gb18030
 	DefaultEOL      string `json:"defaultLineEnding"` // "\n" | "\r\n" | "\r"
@@ -62,6 +65,7 @@ func Default() Settings {
 		TabSize:     4,
 		UseTabs:     false,
 		ShowGuides:  true,
+		Whitespace:  "selection",
 		AutoClose:   true,
 
 		DefaultEncoding: "utf-8",
@@ -147,6 +151,11 @@ func (s *Settings) normalize() {
 	case 2, 4, 8:
 	default:
 		s.TabSize = 4
+	}
+	switch s.Whitespace {
+	case "selection", "none", "all", "trailing":
+	default:
+		s.Whitespace = "selection"
 	}
 	switch s.DefaultEncoding {
 	case "utf-8", "utf-8-bom", "utf-16le", "utf-16be", "gb18030":

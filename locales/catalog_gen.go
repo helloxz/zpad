@@ -1596,6 +1596,66 @@ func (msgs Messages) IndentGuidesDescription() string {
 	return Catalog.Format(msgs.locale, "indentGuidesDescription", nil)
 }
 
+// ShowWhitespace says "Show Whitespace"
+// in the language the app shows.
+func ShowWhitespace() string { return In(i18n.Locale()).ShowWhitespace() }
+
+// ShowWhitespace says "Show Whitespace"
+// in the language of msgs.
+func (msgs Messages) ShowWhitespace() string {
+	return Catalog.Format(msgs.locale, "showWhitespace", nil)
+}
+
+// ShowWhitespaceDescription says "Draw spaces as dots and tabs as arrows."
+// in the language the app shows.
+func ShowWhitespaceDescription() string { return In(i18n.Locale()).ShowWhitespaceDescription() }
+
+// ShowWhitespaceDescription says "Draw spaces as dots and tabs as arrows."
+// in the language of msgs.
+func (msgs Messages) ShowWhitespaceDescription() string {
+	return Catalog.Format(msgs.locale, "showWhitespaceDescription", nil)
+}
+
+// WhitespaceSelection says "In Selections"
+// in the language the app shows.
+func WhitespaceSelection() string { return In(i18n.Locale()).WhitespaceSelection() }
+
+// WhitespaceSelection says "In Selections"
+// in the language of msgs.
+func (msgs Messages) WhitespaceSelection() string {
+	return Catalog.Format(msgs.locale, "whitespaceSelection", nil)
+}
+
+// WhitespaceNone says "Off"
+// in the language the app shows.
+func WhitespaceNone() string { return In(i18n.Locale()).WhitespaceNone() }
+
+// WhitespaceNone says "Off"
+// in the language of msgs.
+func (msgs Messages) WhitespaceNone() string {
+	return Catalog.Format(msgs.locale, "whitespaceNone", nil)
+}
+
+// WhitespaceAll says "All"
+// in the language the app shows.
+func WhitespaceAll() string { return In(i18n.Locale()).WhitespaceAll() }
+
+// WhitespaceAll says "All"
+// in the language of msgs.
+func (msgs Messages) WhitespaceAll() string {
+	return Catalog.Format(msgs.locale, "whitespaceAll", nil)
+}
+
+// WhitespaceTrailing says "Trailing"
+// in the language the app shows.
+func WhitespaceTrailing() string { return In(i18n.Locale()).WhitespaceTrailing() }
+
+// WhitespaceTrailing says "Trailing"
+// in the language of msgs.
+func (msgs Messages) WhitespaceTrailing() string {
+	return Catalog.Format(msgs.locale, "whitespaceTrailing", nil)
+}
+
 // AutoClose says "Auto-close Brackets"
 // in the language the app shows.
 func AutoClose() string { return In(i18n.Locale()).AutoClose() }

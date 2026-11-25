@@ -22,6 +22,8 @@ func TestSettingsModalOpens(t *testing.T) {
 		locales.WorkspaceSection(),
 		locales.SoftWrap(),
 		locales.SoftWrapDescription(),
+		locales.ShowWhitespace(),
+		locales.ShowWhitespaceDescription(),
 		locales.RestoreDefaults(),
 		locales.Done(),
 	} {
@@ -73,6 +75,39 @@ func TestThemeSelectAppliesNamedTheme(t *testing.T) {
 	}
 	if loaded.Theme != "dracula" {
 		t.Fatalf("saved theme %q, want dracula", loaded.Theme)
+	}
+}
+
+func TestWhitespaceSelectApplies(t *testing.T) {
+	i18n.SetLocaleFunc(func() string { return "en" })
+	defer i18n.SetLocaleFunc(func() string { return "en" })
+
+	dir := t.TempDir()
+	a := New(settings.Default(), dir)
+	a.showSettings = true
+	tt := ui.NewTester(a.View, 900, 760)
+	tt.Frame()
+
+	// The editor section sits below the fold of the 640 DIP panel.
+	tt.Move(450, 500)
+	tt.Scroll(450, 500, 0, 600)
+	tt.Frame()
+	if err := tt.Click(locales.WhitespaceSelection()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click(locales.WhitespaceAll()); err != nil {
+		t.Fatal(err)
+	}
+	if a.Settings.Whitespace != "all" {
+		t.Fatalf("whitespace %q after choosing All, want all", a.Settings.Whitespace)
+	}
+	loaded, err := settings.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Whitespace != "all" {
+		t.Fatalf("saved whitespace %q, want all", loaded.Whitespace)
 	}
 }
 

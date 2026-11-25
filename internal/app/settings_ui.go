@@ -302,6 +302,23 @@ func (a *App) settingsEditor(c *ui.Context, t *ui.Theme) {
 		})
 		a.switchSetting(c, t, locales.IndentGuides(), locales.IndentGuidesDescription(),
 			&a.Settings.ShowGuides, false)
+		a.settingRow(c, t, locales.ShowWhitespace(), locales.ShowWhitespaceDescription(), false, func() {
+			a.selectSetting(c, t, locales.ShowWhitespace(), whitespaceLabel(a.Settings.Whitespace),
+				[]string{locales.WhitespaceSelection(), locales.WhitespaceNone(),
+					locales.WhitespaceAll(), locales.WhitespaceTrailing()},
+				func(label string) {
+					switch label {
+					case locales.WhitespaceNone():
+						a.Settings.Whitespace = "none"
+					case locales.WhitespaceAll():
+						a.Settings.Whitespace = "all"
+					case locales.WhitespaceTrailing():
+						a.Settings.Whitespace = "trailing"
+					default:
+						a.Settings.Whitespace = "selection"
+					}
+				})
+		})
 		a.switchSetting(c, t, locales.AutoClose(), locales.AutoCloseDescription(),
 			&a.Settings.AutoClose, true)
 	})
@@ -578,6 +595,19 @@ func indentLabel(useTabs bool) string {
 		return locales.IndentTabs()
 	}
 	return locales.IndentSpaces()
+}
+
+func whitespaceLabel(v string) string {
+	switch v {
+	case "none":
+		return locales.WhitespaceNone()
+	case "all":
+		return locales.WhitespaceAll()
+	case "trailing":
+		return locales.WhitespaceTrailing()
+	default:
+		return locales.WhitespaceSelection()
+	}
 }
 
 func encodingLabels() []string {

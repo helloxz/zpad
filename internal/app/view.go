@@ -994,6 +994,7 @@ func (a *App) configureEditor(tab *Tab, t *ui.Theme) {
 		st.Indent = editor.IndentSpaces
 	}
 	st.NoIndentGuides = !a.Settings.ShowGuides
+	st.Whitespace = whitespaceMode(a.Settings.Whitespace)
 	st.NoAutoClose = !a.Settings.AutoClose
 	st.Font = ui.Font{Family: a.Settings.FontFamily, Size: a.Settings.FontSize}
 	st.LineHeight = a.Settings.LineHeight
@@ -1012,6 +1013,21 @@ func (a *App) configureEditor(tab *Tab, t *ui.Theme) {
 	}
 	st.ContextMenu = func(m *ui.Menu) {
 		a.editorContextMenu(tab, m)
+	}
+}
+
+// whitespaceMode turns the setting into the editor's own choice of where
+// spaces and tabs show as dots and arrows.
+func whitespaceMode(v string) editor.Whitespace {
+	switch v {
+	case "none":
+		return editor.WhitespaceNone
+	case "all":
+		return editor.WhitespaceAll
+	case "trailing":
+		return editor.WhitespaceTrailing
+	default:
+		return editor.WhitespaceSelection
 	}
 }
 

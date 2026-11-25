@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 	"github.com/helloxz/zpad/internal/settings"
 	"github.com/helloxz/zpad/internal/theme"
 	"github.com/helloxz/zpad/locales"
@@ -66,6 +67,49 @@ func TestEditorView(t *testing.T) {
 		if !tt.HasText(want) {
 			t.Errorf("view does not show %q; texts %q", want, tt.Texts())
 		}
+	}
+}
+
+func TestWhitespaceMode(t *testing.T) {
+	for _, tc := range []struct {
+		setting string
+		want    editor.Whitespace
+	}{
+		{"selection", editor.WhitespaceSelection},
+		{"none", editor.WhitespaceNone},
+		{"all", editor.WhitespaceAll},
+		{"trailing", editor.WhitespaceTrailing},
+		{"", editor.WhitespaceSelection},
+	} {
+		if got := whitespaceMode(tc.setting); got != tc.want {
+			t.Errorf("whitespaceMode(%q) = %v, want %v", tc.setting, got, tc.want)
+		}
+	}
+}
+
+// The editor takes the whitespace setting on every frame, so changing it
+// needs no reopened tab.
+func TestViewAppliesWhitespaceSetting(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(path, []byte("a b\tc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := loadDocument(path, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(settings.Default(), dir)
+	a.addDocument(doc)
+	a.Settings.Whitespace = "all"
+
+	ui.NewTester(a.View, 1200, 800)
+	tab := a.pane(0).activeTab()
+	if tab == nil {
+		t.Fatal("no active tab after opening a document")
+	}
+	if want := editor.WhitespaceAll; tab.state.Whitespace != want {
+		t.Fatalf("editor whitespace %v, want %v", tab.state.Whitespace, want)
 	}
 }
 
