@@ -255,13 +255,24 @@ func TestLineNumbersPadsToTwoDigits(t *testing.T) {
 	}
 }
 
-func TestLineNumbersDotSelection(t *testing.T) {
-	a, tab := toolTab(t, "a\nb\nc")
-	selectAll(tab, 0, tab.doc.Buffer.Len())
-	a.runLineNumbers(tab, ". ")
+func TestLineNumbersSeparators(t *testing.T) {
+	cases := []struct {
+		sep  string
+		want string
+	}{
+		{",", "01,a\n02,b"},
+		{". ", "01. a\n02. b"},
+		{") ", "01) a\n02) b"},
+		{": ", "01: a\n02: b"},
+	}
+	for _, c := range cases {
+		a, tab := toolTab(t, "a\nb")
+		selectAll(tab, 0, tab.doc.Buffer.Len())
+		a.runLineNumbers(tab, c.sep)
 
-	if got, want := tab.doc.Buffer.String(), "01. a\n02. b\n03. c"; got != want {
-		t.Fatalf("text %q, want %q", got, want)
+		if got := tab.doc.Buffer.String(); got != c.want {
+			t.Errorf("sep %q: text %q, want %q", c.sep, got, c.want)
+		}
 	}
 }
 
@@ -344,6 +355,31 @@ func TestToolsMenuNumbersSelectedLines(t *testing.T) {
 	}
 	if got, want := tab.doc.Buffer.String(), "01,a\n02,b"; got != want {
 		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestToolsMenuLineNumberStyles(t *testing.T) {
+	cases := map[string]string{
+		locales.LineNumberParen(): "01) a\n02) b",
+		locales.LineNumberColon(): "01: a\n02: b",
+	}
+	for item, want := range cases {
+		a := New(settings.Default(), t.TempDir())
+		a.addDocument(docAt("/tmp/a.txt", "a\nb"))
+		tab := a.activeTab()
+		selectAll(tab, 0, tab.doc.Buffer.Len())
+
+		tt := ui.NewTester(a.View, 900, 600)
+		tt.Frame()
+		if err := tt.Click(locales.ToolsMenu()); err != nil {
+			t.Fatal(err)
+		}
+		if err := tt.ChooseMenuItem(locales.LineNumberGroup(), item); err != nil {
+			t.Fatal(err)
+		}
+		if got := tab.doc.Buffer.String(); got != want {
+			t.Fatalf("%q: text %q, want %q", item, got, want)
+		}
 	}
 }
 

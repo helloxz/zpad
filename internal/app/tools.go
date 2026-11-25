@@ -264,5 +264,11 @@ func (a *App) toolMenu(m *ui.Menu, tab *Tab) {
 		if mm.Item(locales.LineNumberDot()).Disabled(!hasText || tooLarge).Chosen() {
 			a.runLineNumbers(tab, ". ")
 		}
+		if mm.Item(locales.LineNumberParen()).Disabled(!hasText || tooLarge).Chosen() {
+			a.runLineNumbers(tab, ") ")
+		}
+		if mm.Item(locales.LineNumberColon()).Disabled(!hasText || tooLarge).Chosen() {
+			a.runLineNumbers(tab, ": ")
+		}
 	}).Disabled(!editable)
 }

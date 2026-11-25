@@ -35,6 +35,8 @@ func TestNumberLines(t *testing.T) {
 		{"trailing break", "a\nb\n", ",", 1, 2, "01,a\n02,b\n"},
 		{"blank line", "a\n\nb", ",", 1, 2, "01,a\n02,\n03,b"},
 		{"dot and space", "a\nb", ". ", 1, 2, "01. a\n02. b"},
+		{"right paren", "a\nb", ") ", 1, 2, "01) a\n02) b"},
+		{"colon", "a\nb", ": ", 1, 2, "01: a\n02: b"},
 		{"five-digit start", "a\nb\nc", ",", 998, 3, "998,a\n999,b\n1000,c"},
 		{"wide enough", "a\nb", ",", 9, 2, "09,a\n10,b"},
 		{"width one", "a\nb", ":", 1, 1, "1:a\n2:b"},

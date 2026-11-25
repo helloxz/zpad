@@ -1036,6 +1036,26 @@ func (msgs Messages) LineNumberDot() string {
 	return Catalog.Format(msgs.locale, "lineNumberDot", nil)
 }
 
+// LineNumberParen says "01) "
+// in the language the app shows.
+func LineNumberParen() string { return In(i18n.Locale()).LineNumberParen() }
+
+// LineNumberParen says "01) "
+// in the language of msgs.
+func (msgs Messages) LineNumberParen() string {
+	return Catalog.Format(msgs.locale, "lineNumberParen", nil)
+}
+
+// LineNumberColon says "01: "
+// in the language the app shows.
+func LineNumberColon() string { return In(i18n.Locale()).LineNumberColon() }
+
+// LineNumberColon says "01: "
+// in the language of msgs.
+func (msgs Messages) LineNumberColon() string {
+	return Catalog.Format(msgs.locale, "lineNumberColon", nil)
+}
+
 // TextToolNoSelection says "Select the text to process first"
 // in the language the app shows.
 func TextToolNoSelection() string { return In(i18n.Locale()).TextToolNoSelection() }

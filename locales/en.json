@@ -148,6 +148,8 @@
   "lineNumberGroup": "Number Lines",
   "lineNumberComma": "01,",
   "lineNumberDot": "01. ",
+  "lineNumberParen": "01) ",
+  "lineNumberColon": "01: ",
   "textToolNoSelection": "Select the text to process first",
   "textToolTooLarge": "The selection is too long",
   "textToolNotText": "The decoded data is not text",
