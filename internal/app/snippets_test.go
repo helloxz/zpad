@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -172,24 +173,24 @@ func TestInsertSnippetWithoutADocument(t *testing.T) {
 	}
 }
 
-func TestSnippetPanelOpensAndCloses(t *testing.T) {
+func TestSnippetPanelOpensOnAllAndCloses(t *testing.T) {
 	a, _, _ := snippetApp(t)
 	a.openSnippets()
-	if !a.snippetsOpen || a.snippetsManage {
-		t.Fatalf("open %v manage %v", a.snippetsOpen, a.snippetsManage)
+	if !a.snippetsOpen {
+		t.Fatal("the panel did not open")
 	}
-	if len(a.snippetsRows) != 2 {
-		t.Fatalf("rows %#v: want a heading and one snippet", a.snippetsRows)
+	if a.snippetsGroup != -1 {
+		t.Fatalf("group %d: want the whole collection first", a.snippetsGroup)
 	}
-	if a.snippetsRows[0].header != true || a.snippetsRows[1].header {
+	if len(a.snippetsRows) != 1 {
 		t.Fatalf("rows %#v", a.snippetsRows)
 	}
-	if a.snippetsSel != 1 {
+	if a.snippetsSel != 0 {
 		t.Fatalf("choice %d: want the first snippet", a.snippetsSel)
 	}
 	a.closeSnippets()
-	if a.snippetsOpen || len(a.snippetsRows) != 0 {
-		t.Fatal("closing kept the panel or its rows")
+	if a.snippetsOpen || len(a.snippetsRows) != 0 || len(a.snippetCounts) != 0 {
+		t.Fatal("closing kept the panel, its rows or its counts")
 	}
 }
 
@@ -205,17 +206,17 @@ func TestSnippetQueryFiltersRows(t *testing.T) {
 	a.openSnippets()
 	a.snippetsQuery = "CONSOLE"
 	a.refreshSnippetRows()
-	if len(a.snippetsRows) != 2 {
+	if len(a.snippetsRows) != 1 {
 		t.Fatalf("rows %#v", a.snippetsRows)
 	}
-	if sn, ok := a.selectedSnippet(); !ok || sn.Name != "console.log" {
+	if sn, _, ok := a.selectedSnippet(); !ok || sn.Name != "console.log" {
 		t.Fatalf("chosen %#v", sn)
 	}
 
 	// A query that matches the text of one snippet shows only that one.
 	a.snippetsQuery = "b()"
 	a.refreshSnippetRows()
-	if sn, ok := a.selectedSnippet(); !ok || sn.Name != "two lines" {
+	if sn, _, ok := a.selectedSnippet(); !ok || sn.Name != "two lines" {
 		t.Fatalf("chosen by body %#v", sn)
 	}
 
@@ -224,9 +225,12 @@ func TestSnippetQueryFiltersRows(t *testing.T) {
 	if len(a.snippetsRows) != 0 {
 		t.Fatalf("rows %#v", a.snippetsRows)
 	}
+	if a.snippetMatchTotal() != 0 {
+		t.Fatalf("matches %d", a.snippetMatchTotal())
+	}
 }
 
-func TestSnippetRowsSkipHeadingsWhenMoving(t *testing.T) {
+func TestSnippetChoiceWrapsAround(t *testing.T) {
 	a, _, groups := snippetApp(t)
 	g := groups[0]
 	if _, err := a.snippets.AddSnippet(g.ID, "second", "x"); err != nil {
@@ -236,13 +240,19 @@ func TestSnippetRowsSkipHeadingsWhenMoving(t *testing.T) {
 		t.Fatal("could not save snippets")
 	}
 	a.openSnippets()
-	// Rows: heading, "two lines", "second".
-	a.snippetsSel = 1
+	if len(a.snippetsRows) != 2 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+	a.snippetsSel = 0
 	a.moveSnippetSelection(1)
-	if a.snippetsSel != 2 {
+	if a.snippetsSel != 1 {
 		t.Fatalf("choice %d", a.snippetsSel)
 	}
-	a.moveSnippetSelection(1) // wraps over the heading
+	a.moveSnippetSelection(1) // wraps to the first
+	if a.snippetsSel != 0 {
+		t.Fatalf("choice %d", a.snippetsSel)
+	}
+	a.moveSnippetSelection(-1) // and back to the last
 	if a.snippetsSel != 1 {
 		t.Fatalf("choice %d", a.snippetsSel)
 	}
@@ -300,6 +310,13 @@ func TestSnippetDialogShowsWhyItCannotSave(t *testing.T) {
 		t.Fatalf("error %q", a.snippetEditErr)
 	}
 
+	a.snippetEditName = strings.Repeat("n", snippets.MaxNameRunes+1)
+	a.snippetEditBody = "x"
+	a.applySnippetEdit()
+	if a.snippetEditErr != locales.SnippetNameTooLong() {
+		t.Fatalf("error %q", a.snippetEditErr)
+	}
+
 	a.snippetEditName = "big"
 	a.snippetEditBody = strings.Repeat("a", snippets.MaxBodyBytes+1)
 	a.applySnippetEdit()
@@ -321,7 +338,7 @@ func TestSnippetLimitThroughTheApp(t *testing.T) {
 	}
 	g, _ := a.snippets.AddGroup("G")
 	for i := 0; i < snippets.MaxSnippets; i++ {
-		if _, err := a.snippets.AddSnippet(g.ID, strings.Repeat("n", i+1), "x"); err != nil {
+		if _, err := a.snippets.AddSnippet(g.ID, fmt.Sprintf("n%d", i), "x"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -355,8 +372,8 @@ func TestSnippetFromSelectionFillsTheDialog(t *testing.T) {
 	if !a.snippetsOpen {
 		t.Fatal("the panel is not behind the dialog")
 	}
-	if groups := a.snippets.Groups(); len(groups) != 1 || groups[0].Name != "JavaScript" {
-		t.Fatalf("groups %#v: want a group named after the document", groups)
+	if groups := a.snippets.Groups(); len(groups) != 1 || groups[0].Name != defaultSnippetGroup {
+		t.Fatalf("groups %#v: want a default group", groups)
 	}
 	a.applySnippetEdit()
 	groups := a.snippets.Groups()
@@ -558,7 +575,7 @@ func TestSnippetPanelListsAndInsertsByClick(t *testing.T) {
 	}
 }
 
-func TestSnippetManageViewAddsAGroup(t *testing.T) {
+func TestSnippetPanelAddsAGroup(t *testing.T) {
 	a, _, _ := snippetApp(t)
 	tt := ui.NewTester(a.View, 900, 700)
 	for range 2 {
@@ -566,13 +583,6 @@ func TestSnippetManageViewAddsAGroup(t *testing.T) {
 	}
 	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
 	tt.Frame()
-	if err := tt.Click(locales.ManageSnippets()); err != nil {
-		t.Fatal(err)
-	}
-	tt.Frame()
-	if !a.snippetsManage {
-		t.Fatal("the manager did not open")
-	}
 	if err := tt.Click(locales.SnippetNewGroup()); err != nil {
 		t.Fatal(err)
 	}
@@ -591,5 +601,374 @@ func TestSnippetManageViewAddsAGroup(t *testing.T) {
 	}
 	if len(a.snippets.Groups()) != 2 {
 		t.Fatalf("groups %#v", a.snippets.Groups())
+	}
+	if a.snippetsGroup != 1 {
+		t.Fatalf("the panel is on group %d, want the one just added", a.snippetsGroup)
+	}
+}
+
+func TestSnippetPanelCountsGroups(t *testing.T) {
+	a, _, groups := snippetApp(t)
+	g := groups[0]
+	if _, err := a.snippets.AddSnippet(g.ID, "console.log", "console.log(x)"); err != nil {
+		t.Fatal(err)
+	}
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+
+	a.openSnippets()
+	if len(a.snippetsRows) != 3 {
+		t.Fatalf("rows %#v: the all view shows every snippet", a.snippetsRows)
+	}
+	if a.snippetMatchTotal() != 3 {
+		t.Fatalf("total %d", a.snippetMatchTotal())
+	}
+	if a.snippetMatchCount(0) != 2 || a.snippetMatchCount(1) != 1 {
+		t.Fatalf("counts %#v", a.snippetCounts)
+	}
+}
+
+func TestSnippetGroupFiltersTheList(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	a.openSnippets()
+	if len(a.snippetsRows) != 2 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+
+	a.snippetsGroup = 1
+	a.refreshSnippetRows()
+	if len(a.snippetsRows) != 1 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+	sn, gi, ok := a.selectedSnippet()
+	if !ok || sn.Name != "image" || gi != 1 {
+		t.Fatalf("chosen %#v in group %d", sn, gi)
+	}
+
+	// The counts stay about the whole collection, not the group on view.
+	if a.snippetMatchCount(0) != 1 || a.snippetMatchTotal() != 2 {
+		t.Fatalf("counts %#v", a.snippetCounts)
+	}
+}
+
+func TestNewSnippetUsesTheChosenSnippetsGroup(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	a.openSnippets()
+	// The Markdown one is the second row of the all view.
+	a.snippetsSel = 1
+	a.newSnippet()
+	if !a.snippetEditOpen {
+		t.Fatal("the dialog did not open")
+	}
+	if a.snippetEditGroupID != md.ID {
+		t.Fatalf("group %q, want the group of the chosen snippet %q", a.snippetEditGroupID, md.ID)
+	}
+}
+
+func TestNewSnippetStartsWithTheDefaultGroup(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.js", "x"))
+	a.openSnippets()
+	a.newSnippet()
+	if !a.snippetEditOpen {
+		t.Fatal("the dialog did not open")
+	}
+	groups := a.snippets.Groups()
+	if len(groups) != 1 || groups[0].Name != defaultSnippetGroup {
+		t.Fatalf("groups %#v: want one named %q", groups, defaultSnippetGroup)
+	}
+	if a.snippetEditGroupID != groups[0].ID {
+		t.Fatalf("group %q", a.snippetEditGroupID)
+	}
+}
+
+func TestNewSnippetTakesTheSelection(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.js", "const x = 1;\nconsole.log(x);\n"))
+	tab := a.activeTab()
+	tab.state.SetSelections(editor.Selection{Anchor: 0, Head: 12})
+	a.openSnippets()
+	a.newSnippet()
+	if a.snippetEditBody != "const x = 1;" {
+		t.Fatalf("body %q", a.snippetEditBody)
+	}
+	if a.snippetEditName != "const x = 1;" {
+		t.Fatalf("name %q", a.snippetEditName)
+	}
+}
+
+func TestNewSnippetIgnoresAHugeSelection(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	big := strings.Repeat("a", snippets.MaxBodyBytes+10)
+	a.addDocument(docAt("/tmp/a.txt", big))
+	tab := a.activeTab()
+	tab.state.SetSelections(editor.Selection{Anchor: 0, Head: len(big)})
+	a.openSnippets()
+	a.newSnippet()
+	if a.snippetEditBody != "" {
+		t.Fatalf("body %q: a selection over the limit was taken", a.snippetEditBody)
+	}
+}
+
+func TestSnippetEmptyStatePointsAtOtherGroups(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	a.openSnippets()
+	a.snippetsGroup = 0 // JavaScript
+	a.snippetsQuery = "image"
+	a.refreshSnippetRows()
+	if len(a.snippetsRows) != 0 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+	others := a.snippetMatchTotal() - a.snippetMatchCount(a.snippetsGroup)
+	if others != 1 {
+		t.Fatalf("others %d", others)
+	}
+}
+
+func TestDeleteChosenGroupFallsBackToAll(t *testing.T) {
+	a, _, groups := snippetApp(t)
+	a.openSnippets()
+	a.snippetsGroup = 0
+	a.deleteGroup(groups[0].ID)
+	if a.snippetsGroup != -1 {
+		t.Fatalf("group %d: want the all view", a.snippetsGroup)
+	}
+	if len(a.snippetsRows) != 0 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+}
+
+func TestSnippetGroupClickShowsThatGroup(t *testing.T) {
+	a, tab, _ := snippetApp(t)
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	if err := tt.Click("JavaScript"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.snippetsGroup != 0 {
+		t.Fatalf("group %d: the click did not choose the group", a.snippetsGroup)
+	}
+	if tab.doc.Buffer.String() != "one\ntwo" {
+		t.Fatalf("buffer %q: the click inserted a snippet", tab.doc.Buffer.String())
+	}
+}
+
+func TestSnippetGroupHeaderRenamesTheChosenGroup(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	// The header's actions apply to the group chosen in the list.
+	if err := tt.Click("JavaScript"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click(locales.SnippetRenameGroup()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.groupEditOpen {
+		t.Fatal("the header's rename did not open the dialog")
+	}
+	if a.groupEditName != "JavaScript" {
+		t.Fatalf("dialog name %q", a.groupEditName)
+	}
+	if a.groupEditID == "" {
+		t.Fatal("the dialog does not rename the chosen group")
+	}
+}
+
+func TestSnippetGroupHeaderActionsNeedAGroup(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	if a.snippetsGroup != -1 {
+		t.Fatalf("group %d: want the all view", a.snippetsGroup)
+	}
+	// "All" is on view: the header's rename is dimmed and does nothing.
+	if err := tt.Click(locales.SnippetRenameGroup()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.groupEditOpen {
+		t.Fatal("the all view offered a rename")
+	}
+}
+
+func TestSnippetOtherGroupsButtonShowsAll(t *testing.T) {
+	a, _, _ := snippetApp(t)
+	md, err := a.snippets.AddGroup("Markdown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.snippets.AddSnippet(md.ID, "image", "![alt](url)"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.saveSnippets() {
+		t.Fatal("could not save snippets")
+	}
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	a.snippetsGroup = 0
+	a.snippetsQuery = "image"
+	a.refreshSnippetRows()
+	tt.Frame()
+	if !tt.HasText(locales.SnippetOtherGroups(1)) {
+		t.Fatalf("no hint about the other groups; texts %q", tt.Texts())
+	}
+	if err := tt.Click(locales.SnippetShowAll()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.snippetsGroup != -1 {
+		t.Fatalf("group %d: the button did not show all", a.snippetsGroup)
+	}
+	if len(a.snippetsRows) != 1 {
+		t.Fatalf("rows %#v", a.snippetsRows)
+	}
+}
+
+func TestSnippetRowEditButtonOpensTheDialog(t *testing.T) {
+	a, tab, _ := snippetApp(t)
+	tt := ui.NewTester(a.View, 900, 700)
+	for range 2 {
+		tt.Frame()
+	}
+	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Frame()
+	if err := tt.Click(locales.SnippetEditTitle()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.snippetEditOpen {
+		t.Fatal("the edit button did not open the dialog")
+	}
+	if a.snippetEditName != "two lines" {
+		t.Fatalf("name %q", a.snippetEditName)
+	}
+	if got := tab.doc.Buffer.String(); got != "one\ntwo" {
+		t.Fatalf("buffer %q: the edit button inserted a snippet", got)
+	}
+}
+
+func TestInsertSnippetKeepsTheTrailingNewlineItWasGiven(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/s.go", "func x() {\n    \n}\n"))
+	tab := a.activeTab()
+	if !a.loadSnippets() {
+		t.Fatal("could not load snippets")
+	}
+	g, err := a.snippets.AddGroup("Go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sn, err := a.snippets.AddSnippet(g.ID, "block", "a()\nb()\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tab.state.SetSelections(editor.Selection{Anchor: 15, Head: 15})
+	a.insertSnippet(sn)
+
+	// The snippet brings its own break, and takes the line's, so the block
+	// stands on its own lines without leaving a blank one behind.
+	want := "func x() {\n    a()\n    b()\n}\n"
+	if got := tab.doc.Buffer.String(); got != want {
+		t.Fatalf("buffer %q, want %q", got, want)
+	}
+	if got, wantCur := tab.state.Cursor(), len("func x() {\n    a()\n    b()\n"); got != wantCur {
+		t.Fatalf("caret %d, want %d", got, wantCur)
+	}
+	// No line is left with trailing spaces.
+	for i, line := range strings.Split(want, "\n") {
+		if line != strings.TrimRight(line, " ") {
+			t.Fatalf("line %d of %q keeps trailing spaces", i, line)
+		}
+	}
+}
+
+func TestInsertSnippetSplitsTheLineAfterIt(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/s.txt", "one"))
+	tab := a.activeTab()
+	if !a.loadSnippets() {
+		t.Fatal("could not load snippets")
+	}
+	g, err := a.snippets.AddGroup("G")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sn, err := a.snippets.AddSnippet(g.ID, "block", "x()\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Mid-line: the rest of the line continues below the block.
+	tab.state.SetSelections(editor.Selection{Anchor: 1, Head: 1})
+	a.insertSnippet(sn)
+	if got := tab.doc.Buffer.String(); got != "ox()\nne" {
+		t.Fatalf("buffer %q", got)
+	}
+}
+
+func TestSnippetNameFromCutsALongLine(t *testing.T) {
+	long := strings.Repeat("a", snippets.MaxNameRunes+20)
+	got := snippetNameFrom(long)
+	if n := len([]rune(got)); n != snippets.MaxNameRunes {
+		t.Fatalf("name of %d characters, want %d", n, snippets.MaxNameRunes)
 	}
 }

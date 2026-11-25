@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/helloxz/zpad/internal/snippets"
@@ -10,25 +11,29 @@ import (
 	"github.com/helloxz/zpad/locales"
 )
 
-// snippetsModal draws the snippet panel over the window: the palette that
-// inserts a snippet, or the management view. The editor dialogs sit over
-// it, and the panel is not drawn then.
+// The panel's column headers: both use this height, so that the two boxes
+// below them start on the same line whatever an action becomes.
+const snippetHeaderHeight = 26
+
+// snippetGroupsWidth is the width of the panel's group column: enough for a
+// language name and a count, not enough to crowd the snippets beside it.
+const snippetGroupsWidth = 160
+
+// snippetsModal draws the snippet panel over the window: groups on the left,
+// the snippets of the one chosen on the right. A snippet is added, edited or
+// removed from here; only its name and text open a dialog of their own.
 func (a *App) snippetsModal(c *ui.Context, t *ui.Theme) {
 	if !a.snippetsOpen || a.snippetEditOpen || a.groupEditOpen {
 		return
 	}
 	width, height := c.Size()
-	panelW := min(float32(640), width-40)
-	panelH := min(float32(540), height*0.72)
-	if a.snippetsManage {
-		panelW = min(float32(760), width-40)
-		panelH = min(float32(600), height*0.78)
+	panelW := min(float32(720), width-40)
+	if panelW < 360 {
+		panelW = max(width-24, 300)
 	}
-	if panelW < 280 {
-		panelW = max(width-24, 240)
-	}
-	if panelH < 220 {
-		panelH = max(height-80, 200)
+	panelH := min(float32(600), height*0.78)
+	if panelH < 240 {
+		panelH = max(height-80, 220)
 	}
 	ui.DialogBase(c, &a.snippetsOpen, func(backdrop, panel ui.Element) {
 		c.SetTheme(t)
@@ -37,51 +42,17 @@ func (a *App) snippetsModal(c *ui.Context, t *ui.Theme) {
 			Background(t.Background).Border(1, t.Border).Radius(14).
 			Shadow(0, 16, 48, 0, ui.RGBA(0, 0, 0, 0.28))
 		panel.Children(func() {
-			if a.snippetsManage {
-				a.snippetManager(c, t)
-				return
-			}
-			a.snippetPalette(c, t)
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, locales.Snippets()).FontSize(14).Bold()
+			})
+			a.snippetSearchField(c, t)
+			ui.Row(c).Grow(1).FillWidth().Gap(10).MinHeight(0).Children(func() {
+				a.snippetGroupsColumn(c, t)
+				a.snippetListColumn(c, t)
+			})
+			a.snippetFooter(c, t)
 		})
 	})
-}
-
-// snippetPalette is the panel that inserts a snippet: a field to filter
-// with, the groups and their snippets, and how to use them.
-func (a *App) snippetPalette(c *ui.Context, t *ui.Theme) {
-	ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-		ui.Text(c, locales.Snippets()).FontSize(14).Bold()
-		ui.Spacer(c)
-		if a.canSaveSelection() {
-			if ui.Button(c, locales.SnippetFromSelection()).Cursor(ui.CursorPointer).Clicked() {
-				a.openSnippetFromSelection()
-			}
-		}
-		if ui.Button(c, locales.ManageSnippets()).Cursor(ui.CursorPointer).Clicked() {
-			a.snippetsManage = true
-			a.snippetsQuery = ""
-			a.refreshSnippetRows()
-			a.update()
-		}
-	})
-	a.snippetSearchField(c, t)
-	a.snippetPaletteBody(c, t)
-	a.snippetPaletteFooter(c, t)
-}
-
-// canSaveSelection reports whether the active tab has text selected that
-// could become a snippet.
-func (a *App) canSaveSelection() bool {
-	tab := a.activeTab()
-	if tab == nil || tab.preview {
-		return false
-	}
-	for _, s := range tab.state.Selections() {
-		if !s.Empty() {
-			return true
-		}
-	}
-	return false
 }
 
 func (a *App) snippetSearchField(c *ui.Context, t *ui.Theme) {
@@ -135,134 +106,195 @@ func (a *App) snippetSearchField(c *ui.Context, t *ui.Theme) {
 	}
 }
 
-func (a *App) snippetPaletteBody(c *ui.Context, t *ui.Theme) {
+// snippetGroupsColumn lists "all" and every group, with how many snippets
+// the query matches in each, and the buttons that add and organise them.
+func (a *App) snippetGroupsColumn(c *ui.Context, t *ui.Theme) {
+	chosen, hasGroup := a.groupAt(a.snippetsGroup)
+	ui.Column(c).Width(snippetGroupsWidth).Shrink(0).FillHeight().Gap(6).Children(func() {
+		ui.Row(c).Height(snippetHeaderHeight).AlignItems(ui.Center).Gap(2).Children(func() {
+			ui.Text(c, locales.SnippetGroups()).FontSize(11).Bold().TextColor(t.TextMuted)
+			ui.Spacer(c)
+			a.snippetIconAction(c, t, iconEdit, locales.SnippetRenameGroup(), !hasGroup, func() {
+				a.openGroupDialog(chosen.ID)
+			})
+			a.snippetIconAction(c, t, iconTrash, locales.SnippetDeleteGroup(), !hasGroup, func() {
+				a.confirmDeleteGroup(chosen.ID)
+			})
+			a.snippetIconAction(c, t, iconPlus, locales.SnippetNewGroup(), false, func() {
+				a.openGroupDialog("")
+			})
+		})
+		ui.Scroll(c).Grow(1).FillWidth().MinHeight(0).
+			Background(t.Surface).Border(1, t.Border).Radius(8).Padding(4).
+			Children(func() {
+				var groups []snippets.Group
+				if a.snippets != nil {
+					groups = a.snippets.Groups()
+				}
+				ui.Column(c).FillWidth().Gap(1).Children(func() {
+					a.snippetGroupRow(c, t, -1, locales.SnippetAllGroups(), a.snippetMatchTotal())
+					for i, g := range groups {
+						a.snippetGroupRow(c, t, i, g.Name, a.snippetMatchCount(i))
+					}
+				})
+			})
+	})
+}
+
+// snippetGroupRow is one group: a click shows its snippets. Index -1 is the
+// "all" row, which renames and deletes nothing.
+func (a *App) snippetGroupRow(c *ui.Context, t *ui.Theme, index int, name string, count int) {
+	active := index == a.snippetsGroup
+	dim := !active && a.snippetsQuery != "" && count == 0
+	b := ui.ButtonBase(c).FillWidth().Height(26).Padding(0, 6).Gap(8).
+		Radius(5).Cursor(ui.CursorPointer).Label(name)
+	if active {
+		b.Background(t.Accent)
+	} else if b.Hovered() {
+		b.Background(t.SurfaceHover)
+	}
+	color := t.Text
+	switch {
+	case active:
+		color = t.AccentText
+	case dim:
+		color = t.TextMuted
+	}
+	b.Children(func() {
+		ui.Text(c, name).FontSize(12).SingleLine().TruncateMiddle().TextColor(color)
+		ui.Spacer(c)
+		ui.Text(c, fmt.Sprintf("%d", count)).FontSize(10).TextColor(color)
+	})
+	if b.Clicked() {
+		a.snippetsGroup = index
+		a.refreshSnippetRows()
+		a.update()
+	}
+}
+
+// snippetListColumn shows the snippets of the chosen group, or of all of
+// them, with the button that adds one.
+func (a *App) snippetListColumn(c *ui.Context, t *ui.Theme) {
+	title := locales.SnippetAllSnippets()
+	if g, ok := a.groupAt(a.snippetsGroup); ok {
+		title = g.Name
+	}
+	ui.Column(c).Grow(1).FillHeight().MinHeight(0).Gap(6).Children(func() {
+		ui.Row(c).Height(snippetHeaderHeight).AlignItems(ui.Center).Gap(2).Children(func() {
+			ui.Text(c, title).FontSize(11).Bold().TextColor(t.TextMuted).
+				SingleLine().TruncateMiddle()
+			ui.Spacer(c)
+			a.snippetIconButton(c, t, iconPlus, locales.SnippetNewSnippet(), func() {
+				a.newSnippet()
+			})
+		})
+		a.snippetList(c, t)
+	})
+}
+
+func (a *App) snippetList(c *ui.Context, t *ui.Theme) {
+	box := ui.Column(c).Grow(1).FillWidth().MinHeight(0).
+		Background(t.Surface).Border(1, t.Border).Radius(8).Clip()
 	if len(a.snippetsRows) == 0 {
-		a.snippetEmptyState(c, t)
+		// The empty state keeps the panel's theme: inside the list's, a
+		// primary button would take its faint accent and read as disabled.
+		box.Children(func() { a.snippetEmptyState(c, t) })
 		return
 	}
-
-	a.snippetsList.Selected = &a.snippetsSel
-	a.snippetsList.Header = func(i int) bool {
-		return i >= 0 && i < len(a.snippetsRows) && a.snippetsRows[i].header
-	}
-	a.snippetsList.Label = func(i int) string {
-		if i < 0 || i >= len(a.snippetsRows) {
-			return ""
-		}
-		if sn, ok := a.rowSnippet(i); ok {
-			return sn.Name
-		}
-		return ""
-	}
-	a.snippetsList.Key = func(i int) any {
-		if i < 0 || i >= len(a.snippetsRows) {
-			return i
-		}
-		row := a.snippetsRows[i]
-		if row.header {
-			return fmt.Sprintf("group:%d", row.group)
-		}
-		if sn, ok := a.rowSnippet(i); ok {
-			return "snippet:" + sn.ID
-		}
-		return fmt.Sprintf("row:%d", i)
-	}
 	var list ui.Element
-	ui.Themed(c, theme.ResultList(t)).Grow(1).MinHeight(0).Background(ui.Transparent).Children(func() {
-		list = ui.List(c, &a.snippetsList, len(a.snippetsRows), func(i int) {
-			a.snippetRowView(c, t, i)
-		}).Grow(1)
+	box.Children(func() {
+		ui.Themed(c, theme.ResultList(t)).Grow(1).FillWidth().Padding(4).Children(func() {
+			a.snippetsList.Selected = &a.snippetsSel
+			a.snippetsList.Label = func(i int) string {
+				if sn, _, ok := a.snippetAt(i); ok {
+					return sn.Name
+				}
+				return ""
+			}
+			a.snippetsList.Key = func(i int) any {
+				if sn, _, ok := a.snippetAt(i); ok {
+					return "snippet:" + sn.ID
+				}
+				return fmt.Sprintf("row:%d", i)
+			}
+			list = ui.List(c, &a.snippetsList, len(a.snippetsRows), func(i int) {
+				a.snippetRowView(c, t, i)
+			}).Grow(1)
+		})
 	})
 	if list.Submitted() {
 		a.insertSelectedSnippet()
 	}
 }
 
-// rowSnippet returns the snippet a row shows.
-func (a *App) rowSnippet(i int) (snippets.Snippet, bool) {
-	if a.snippets == nil || i < 0 || i >= len(a.snippetsRows) {
-		return snippets.Snippet{}, false
-	}
-	row := a.snippetsRows[i]
-	if row.header {
-		return snippets.Snippet{}, false
-	}
-	groups := a.snippets.Groups()
-	if row.group < 0 || row.group >= len(groups) {
-		return snippets.Snippet{}, false
-	}
-	snips := groups[row.group].Snippets
-	if row.snippet < 0 || row.snippet >= len(snips) {
-		return snippets.Snippet{}, false
-	}
-	return snips[row.snippet], true
-}
-
 func (a *App) snippetRowView(c *ui.Context, t *ui.Theme, i int) {
-	if a.snippets == nil || i < 0 || i >= len(a.snippetsRows) {
-		return
-	}
-	row := a.snippetsRows[i]
-	groups := a.snippets.Groups()
-	if row.group < 0 || row.group >= len(groups) {
-		return
-	}
-	g := groups[row.group]
-	if row.header {
-		h := ui.Row(c).FillWidth().Height(26).Padding(0, 8).Gap(6).
-			AlignItems(ui.Center).Background(t.Surface)
-		h.Children(func() {
-			ui.Text(c, g.Name).FontSize(11).Bold().TextColor(t.TextMuted).SingleLine()
-			ui.Spacer(c)
-			ui.Text(c, fmt.Sprintf("%d", len(g.Snippets))).FontSize(11).TextColor(t.TextMuted)
-		})
-		return
-	}
-	sn, ok := a.rowSnippet(i)
+	sn, gi, ok := a.snippetAt(i)
 	if !ok {
 		return
 	}
-	e := ui.Row(c).FillWidth().Height(28).Padding(0, 8).Gap(10).
-		AlignItems(ui.Center).Cursor(ui.CursorPointer)
-	e.Children(func() {
-		ui.Text(c, sn.Name).FontSize(12).SingleLine()
-		ui.Text(c, snippetPreview(sn.Body)).FontSize(11).TextColor(t.TextMuted).
-			SingleLine().Grow(1)
+	ui.Row(c).FillWidth().Height(30).Gap(2).Children(func() {
+		b := ui.ButtonBase(c).Grow(1).Height(28).Padding(0, 6).Gap(8).
+			Radius(5).Cursor(ui.CursorPointer).Label(sn.Name)
+		if b.Hovered() {
+			b.Background(t.SurfaceHover)
+		}
+		b.Children(func() {
+			ui.Text(c, sn.Name).FontSize(12).SingleLine().TruncateMiddle().MaxWidth(220)
+			ui.Text(c, snippetPreview(sn.Body)).FontSize(11).TextColor(t.TextMuted).
+				SingleLine().Grow(1)
+			// In the "all" list a row has to say which group it is from.
+			if a.snippetsGroup == -1 {
+				ui.Text(c, a.groupNameAt(gi)).FontSize(10).TextColor(t.TextMuted).
+					SingleLine().Shrink(0)
+			}
+		})
+		if b.Clicked() {
+			a.insertSnippet(sn)
+		}
+		a.snippetIconButton(c, t, iconEdit, locales.SnippetEditTitle(), func() {
+			a.openSnippetDialog(a.groupIDAt(gi), sn.ID)
+		})
+		a.snippetIconButton(c, t, iconTrash, locales.Delete(), func() {
+			a.confirmDeleteSnippet(a.groupIDAt(gi), sn.ID)
+		})
 	})
-	if e.RowClicked() {
-		a.insertSnippet(sn)
-	}
 }
 
-// snippetEmptyState says why the panel has nothing to list, and offers the
-// step that comes next.
+// snippetEmptyState says why the list is empty, and offers the step that
+// comes next: adding a snippet, or looking in the groups the query matched
+// elsewhere.
 func (a *App) snippetEmptyState(c *ui.Context, t *ui.Theme) {
 	msg := locales.SnippetNone()
 	if a.snippetsQuery != "" {
 		msg = locales.SnippetNoMatch()
 	}
+	others := 0
+	if a.snippetsQuery != "" && a.snippetsGroup != -1 {
+		others = a.snippetMatchTotal() - a.snippetMatchCount(a.snippetsGroup)
+	}
 	ui.Column(c).Grow(1).Center().Gap(8).Padding(16).Children(func() {
 		ui.Text(c, msg).FontSize(12).TextColor(t.TextMuted)
+		if others > 0 {
+			ui.Text(c, locales.SnippetOtherGroups(others)).FontSize(11).
+				TextColor(t.TextMuted)
+			if ui.Button(c, locales.SnippetShowAll()).Cursor(ui.CursorPointer).Clicked() {
+				a.snippetsGroup = -1
+				a.refreshSnippetRows()
+				a.update()
+			}
+			return
+		}
 		if a.snippetsQuery != "" {
 			return
 		}
 		ui.Text(c, locales.SnippetNoneHint()).FontSize(11).TextColor(t.TextMuted)
-		ui.Row(c).Gap(6).Children(func() {
-			if ui.Button(c, locales.SnippetNewGroup()).Cursor(ui.CursorPointer).Clicked() {
-				a.openGroupDialog("")
-			}
-			has := a.snippets != nil && len(a.snippets.Groups()) > 0
-			if ui.PrimaryButton(c, locales.SnippetNewSnippet()).Disabled(!has).
-				Cursor(ui.CursorPointer).Clicked() {
-				if g, _, ok := a.chosenGroup(); ok {
-					a.openSnippetDialog(g.ID, "")
-				}
-			}
-		})
+		if ui.PrimaryButton(c, locales.SnippetNewSnippet()).Cursor(ui.CursorPointer).Clicked() {
+			a.newSnippet()
+		}
 	})
 }
 
-func (a *App) snippetPaletteFooter(c *ui.Context, t *ui.Theme) {
+func (a *App) snippetFooter(c *ui.Context, t *ui.Theme) {
 	ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
 		if a.Settings.VimMode {
 			ui.Text(c, locales.SnippetVimHint()).FontSize(11).TextColor(t.Warning)
@@ -277,153 +309,28 @@ func (a *App) snippetPaletteFooter(c *ui.Context, t *ui.Theme) {
 	})
 }
 
-// snippetManager is the view that adds, renames and deletes: groups on the
-// left, the snippets of the chosen one on the right.
-func (a *App) snippetManager(c *ui.Context, t *ui.Theme) {
-	ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-		ui.Text(c, locales.SnippetManagerTitle()).FontSize(14).Bold()
-		ui.Spacer(c)
-		if ui.PrimaryButton(c, locales.Done()).Cursor(ui.CursorPointer).Clicked() {
-			a.snippetsManage = false
-			a.snippetsQuery = ""
-			a.snippetsFocus = true
-			a.refreshSnippetRows()
-			a.update()
-		}
-	})
-	ui.Row(c).Grow(1).FillWidth().Gap(10).MinHeight(0).Children(func() {
-		a.snippetGroupColumn(c, t)
-		a.snippetColumn(c, t)
-	})
+// snippetIconButton is one of the small buttons the panel's rows carry.
+func (a *App) snippetIconButton(c *ui.Context, t *ui.Theme, icon *ui.SVG, label string, run func()) ui.Element {
+	return a.snippetIconAction(c, t, icon, label, false, run)
 }
 
-func (a *App) snippetGroupColumn(c *ui.Context, t *ui.Theme) {
-	ui.Column(c).Width(190).Shrink(0).FillHeight().Gap(6).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(4).Children(func() {
-			ui.Text(c, locales.SnippetGroups()).FontSize(11).Bold().TextColor(t.TextMuted)
-			ui.Spacer(c)
-			a.snippetIconButton(c, t, iconPlus, locales.SnippetNewGroup(), func() {
-				a.openGroupDialog("")
-			})
-		})
-		ui.Scroll(c).Grow(1).FillWidth().MinHeight(0).
-			Background(t.Surface).Border(1, t.Border).Radius(8).Padding(4).
-			Children(func() {
-				var groups []snippets.Group
-				if a.snippets != nil {
-					groups = a.snippets.Groups()
-				}
-				ui.Column(c).FillWidth().Gap(1).Children(func() {
-					for i, g := range groups {
-						a.snippetGroupRow(c, t, i, g)
-					}
-				})
-			})
-		ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
-			g, _, ok := a.chosenGroup()
-			if ui.Button(c, locales.Rename()).Disabled(!ok).Cursor(ui.CursorPointer).Clicked() {
-				a.openGroupDialog(g.ID)
-			}
-			if ui.Button(c, locales.Delete()).Disabled(!ok).Cursor(ui.CursorPointer).Clicked() {
-				a.confirmDeleteGroup(g.ID)
-			}
-		})
-	})
-}
-
-func (a *App) snippetGroupRow(c *ui.Context, t *ui.Theme, i int, g snippets.Group) {
-	active := i == a.snippetsGroup
-	b := ui.ButtonBase(c).FillWidth().Height(28).Padding(0, 8).Gap(6).
-		Radius(6).Cursor(ui.CursorPointer)
-	switch {
-	case active:
-		b.Background(t.Accent)
-	case b.Hovered():
-		b.Background(t.SurfaceHover)
-	}
-	color := t.TextMuted
-	if active {
-		color = t.AccentText
-	}
-	b.Children(func() {
-		ui.Text(c, g.Name).FontSize(12).SingleLine().TextColor(color)
-		ui.Spacer(c)
-		ui.Text(c, fmt.Sprintf("%d", len(g.Snippets))).FontSize(10).TextColor(color)
-	})
-	if b.Clicked() {
-		a.selectGroup(g.ID)
-		a.update()
-	}
-}
-
-func (a *App) snippetColumn(c *ui.Context, t *ui.Theme) {
-	g, _, ok := a.chosenGroup()
-	ui.Column(c).Grow(1).FillHeight().MinHeight(0).Gap(6).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(4).Children(func() {
-			name := locales.SnippetNoGroup()
-			if ok {
-				name = g.Name
-			}
-			ui.Text(c, name).FontSize(11).Bold().TextColor(t.TextMuted).SingleLine()
-			ui.Spacer(c)
-			a.snippetIconButton(c, t, iconPlus, locales.SnippetNewSnippet(), func() {
-				a.openSnippetDialog(g.ID, "")
-			})
-		})
-		ui.Scroll(c).Grow(1).FillWidth().MinHeight(0).
-			Background(t.Surface).Border(1, t.Border).Radius(8).Padding(4).
-			Children(func() {
-				if !ok || len(g.Snippets) == 0 {
-					ui.Column(c).FillWidth().Padding(24, 16).Center().Gap(4).Children(func() {
-						ui.Text(c, locales.SnippetNone()).FontSize(12).TextColor(t.TextMuted)
-						ui.Text(c, locales.SnippetNoneHint()).FontSize(11).TextColor(t.TextMuted)
-					})
-					return
-				}
-				ui.Column(c).FillWidth().Gap(1).Children(func() {
-					for _, sn := range g.Snippets {
-						a.snippetManagerRow(c, t, g.ID, sn)
-					}
-				})
-			})
-	})
-}
-
-func (a *App) snippetManagerRow(c *ui.Context, t *ui.Theme, groupID string, sn snippets.Snippet) {
-	ui.Row(c).FillWidth().Height(30).Gap(4).Children(func() {
-		b := ui.ButtonBase(c).Grow(1).Height(28).Padding(0, 6).Gap(8).
-			Radius(5).Cursor(ui.CursorPointer).Label(sn.Name)
+// snippetIconAction is snippetIconButton for an action that may not apply:
+// a header's rename, say, while "all" is on view, which dims rather than
+// disappearing and keeps the header the same width.
+func (a *App) snippetIconAction(c *ui.Context, t *ui.Theme, icon *ui.SVG, label string, disabled bool, run func()) ui.Element {
+	b := ui.ButtonBase(c).Size(22, 22).Center().Radius(5).Label(label).Tooltip(label)
+	if disabled {
+		b.Disabled(true).DimDisabled(true)
+	} else {
+		b.Cursor(ui.CursorPointer)
 		if b.Hovered() {
 			b.Background(t.SurfaceHover)
 		}
-		b.Children(func() {
-			ui.Text(c, sn.Name).FontSize(12).SingleLine()
-			ui.Text(c, snippetPreview(sn.Body)).FontSize(11).TextColor(t.TextMuted).
-				SingleLine().Grow(1)
-		})
-		if b.Clicked() {
-			a.openSnippetDialog(groupID, sn.ID)
-		}
-		a.snippetIconButton(c, t, iconEdit, locales.SnippetEditTitle(), func() {
-			a.openSnippetDialog(groupID, sn.ID)
-		})
-		a.snippetIconButton(c, t, iconTrash, locales.Delete(), func() {
-			a.confirmDeleteSnippet(groupID, sn.ID)
-		})
-	})
-}
-
-// snippetIconButton is one of the small buttons the manager's rows carry.
-func (a *App) snippetIconButton(c *ui.Context, t *ui.Theme, icon *ui.SVG, label string, run func()) ui.Element {
-	b := ui.ButtonBase(c).Size(22, 22).Center().Radius(5).Label(label).
-		Tooltip(label).Cursor(ui.CursorPointer)
-	if b.Hovered() {
-		b.Background(t.SurfaceHover)
 	}
 	b.Children(func() {
 		ui.Icon(c, icon).FontSize(13).TextColor(t.TextMuted)
 	})
-	if b.Clicked() {
+	if !disabled && b.Clicked() {
 		run()
 	}
 	return b
@@ -470,11 +377,13 @@ func (a *App) snippetEditModal(c *ui.Context, t *ui.Theme) {
 			ui.Text(c, title).FontSize(16).Bold()
 			if a.snippets != nil {
 				if g, ok := a.snippets.Group(a.snippetEditGroupID); ok {
-					ui.Text(c, g.Name).FontSize(11).TextColor(t.TextMuted).SingleLine()
+					ui.Text(c, locales.SnippetGroupOf(g.Name)).FontSize(11).
+						TextColor(t.TextMuted).SingleLine().TruncateMiddle()
 				}
 			}
 			in := ui.TextInput(c, &a.snippetEditName).FillWidth().
-				Label(locales.SnippetNameLabel())
+				Label(locales.SnippetNameLabel()).
+				Placeholder(locales.SnippetNamePlaceholder())
 			if a.snippetEditFocus {
 				in.AutoFocus()
 				a.snippetEditFocus = false
@@ -483,11 +392,16 @@ func (a *App) snippetEditModal(c *ui.Context, t *ui.Theme) {
 			ui.Text(c, locales.SnippetBodyLabel()).FontSize(11).TextColor(t.TextMuted)
 			ui.TextArea(c, &a.snippetEditBody).FillWidth().Grow(1).MinHeight(120).
 				Padding(8).Radius(6).Background(t.Surface).Border(1, t.Border).
-				Label(locales.SnippetBodyLabel())
+				Label(locales.SnippetBodyLabel()).
+				Placeholder(locales.SnippetBodyPlaceholder())
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-				size := formatSize(int64(len(a.snippetEditBody))) + " / " +
+				counts := locales.SnippetNameLabel() + " " +
+					fmt.Sprintf("%d / %d", utf8.RuneCountInString(a.snippetEditName),
+						snippets.MaxNameRunes) + "  ·  " +
+					locales.SnippetBodyLabel() + " " +
+					formatSize(int64(len(a.snippetEditBody))) + " / " +
 					formatSize(snippets.MaxBodyBytes)
-				ui.Text(c, size).FontSize(11).TextColor(t.TextMuted)
+				ui.Text(c, counts).FontSize(11).TextColor(t.TextMuted)
 				ui.Spacer(c)
 				if ui.Button(c, locales.Cancel()).Cursor(ui.CursorPointer).Clicked() {
 					a.snippetEditOpen = false
@@ -524,15 +438,19 @@ func (a *App) groupEditModal(c *ui.Context, t *ui.Theme) {
 		panel.Children(func() {
 			ui.Text(c, title).FontSize(16).Bold()
 			in := ui.TextInput(c, &a.groupEditName).FillWidth().
-				Label(locales.SnippetNameLabel())
+				Label(locales.SnippetNameLabel()).
+				Placeholder(locales.SnippetGroupNamePlaceholder())
 			if a.groupEditFocus {
 				in.AutoFocus()
 				a.groupEditFocus = false
 			}
+			submit := in.Submitted()
 			if a.groupEditErr != "" {
 				ui.Text(c, a.groupEditErr).FontSize(11).TextColor(t.Danger).SingleLine()
+			} else {
+				ui.Text(c, fmt.Sprintf("%d / %d", utf8.RuneCountInString(a.groupEditName),
+					snippets.MaxNameRunes)).FontSize(11).TextColor(t.TextMuted)
 			}
-			submit := in.Submitted()
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
 				ui.Spacer(c)
 				if ui.Button(c, locales.Cancel()).Cursor(ui.CursorPointer).Clicked() {

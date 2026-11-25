@@ -3,6 +3,7 @@ package snippets
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,7 +153,7 @@ func TestAddRefusesBeyondTheLimits(t *testing.T) {
 		t.Fatalf("a body of exactly the limit was refused: %v", err)
 	}
 	for i := 1; i < MaxSnippets; i++ {
-		if _, err := s.AddSnippet(g.ID, "n"+strings.Repeat("x", i), "x"); err != nil {
+		if _, err := s.AddSnippet(g.ID, fmt.Sprintf("n%d", i), "x"); err != nil {
 			t.Fatalf("snippet %d: %v", i, err)
 		}
 	}
@@ -215,5 +216,57 @@ func TestSaveWithoutDirKeepsNothing(t *testing.T) {
 	}
 	if err := s.Save(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNamesAreLimitedAndCleaned(t *testing.T) {
+	s, _ := Load(t.TempDir())
+	if _, err := s.AddGroup(strings.Repeat("a", MaxNameRunes+1)); !errors.Is(err, ErrNameTooLong) {
+		t.Fatalf("a name over the limit: %v", err)
+	}
+	// The limit counts characters, not bytes: forty of either language.
+	if _, err := s.AddGroup(strings.Repeat("a", MaxNameRunes)); err != nil {
+		t.Fatalf("a name of exactly the limit: %v", err)
+	}
+	if _, err := s.AddGroup(strings.Repeat("片", MaxNameRunes)); err != nil {
+		t.Fatalf("a Chinese name of exactly the limit: %v", err)
+	}
+
+	// Tabs and newlines fold into one space; control characters go.
+	g, err := s.AddGroup("  my\tgroup\n\x00name\x1b  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Name != "my group name" {
+		t.Fatalf("name %q", g.Name)
+	}
+}
+
+func TestLoadKeepsANameThatIsNowTooLong(t *testing.T) {
+	dir := t.TempDir()
+	long := strings.Repeat("x", MaxNameRunes+10)
+	body, err := json.Marshal(fileFormat{Groups: []Group{
+		{Name: long, Snippets: []Snippet{{Name: long, Body: "body"}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FileName), body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := s.Groups()
+	if len(groups) != 1 || groups[0].Name != long {
+		t.Fatalf("groups %#v: a long name was dropped", groups)
+	}
+	if len(groups[0].Snippets) != 1 || groups[0].Snippets[0].Name != long {
+		t.Fatalf("snippets %#v: a long name was dropped", groups[0].Snippets)
+	}
+	// Editing it asks for a shorter name rather than silently cutting it.
+	if err := s.RenameGroup(groups[0].ID, long); !errors.Is(err, ErrNameTooLong) {
+		t.Fatalf("renaming to a long name: %v", err)
 	}
 }

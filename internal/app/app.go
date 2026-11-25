@@ -222,18 +222,20 @@ type App struct {
 	searchRanOptions searchOptions
 
 	// The user's code snippets: the store read when the panel opens, the
-	// panel's query, rows and choice, and the management view's group. The
-	// editor dialog edits a snippet, the group dialog a group's name;
-	// both sit over the panel, which is not drawn then.
-	snippets       *snippets.Store
-	snippetsOpen   bool
-	snippetsManage bool
-	snippetsFocus  bool
-	snippetsQuery  string
-	snippetsRows   []snippetRow
-	snippetsSel    int
-	snippetsList   ui.ListState
-	snippetsGroup  int
+	// panel's query, the rows it lists, the choice among them, and the
+	// group on view, -1 for all of them. snippetCounts is how many rows
+	// each group matched, for the column on the left. The editor dialog
+	// edits a snippet, the group dialog a group's name; both sit over the
+	// panel, which is not drawn then.
+	snippets      *snippets.Store
+	snippetsOpen  bool
+	snippetsFocus bool
+	snippetsQuery string
+	snippetsRows  []snippetRow
+	snippetCounts []int
+	snippetsSel   int
+	snippetsList  ui.ListState
+	snippetsGroup int
 
 	snippetEditOpen    bool
 	snippetEditGroupID string
@@ -274,19 +276,21 @@ func New(s settings.Settings, settingsDir string) *App {
 	s.Theme = theme.Normalize(s.Theme)
 	def := theme.Resolve(s.Theme, false)
 	return &App{
-		Settings:     s,
-		SettingsDir:  settingsDir,
-		LogPath:      filepath.Join(settingsDir, LogName),
-		Dark:         def.Dark,
-		treeSelected: -1,
-		left:         Pane{active: -1},
-		right:        Pane{active: -1},
-		splitWidth:   600,
-		splitHeight:  500,
-		fontSize:     float64(s.FontSize),
-		lineHeight:   float64(s.LineHeight),
-		loadingPaths: map[string]bool{},
-		checkUpdates: updater.CheckForUpdates,
+		Settings:      s,
+		SettingsDir:   settingsDir,
+		LogPath:       filepath.Join(settingsDir, LogName),
+		Dark:          def.Dark,
+		treeSelected:  -1,
+		left:          Pane{active: -1},
+		right:         Pane{active: -1},
+		splitWidth:    600,
+		splitHeight:   500,
+		snippetsGroup: -1,
+		snippetsSel:   -1,
+		fontSize:      float64(s.FontSize),
+		lineHeight:    float64(s.LineHeight),
+		loadingPaths:  map[string]bool{},
+		checkUpdates:  updater.CheckForUpdates,
 	}
 }
 

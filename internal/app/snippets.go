@@ -12,33 +12,31 @@ import (
 	"github.com/helloxz/zpad/locales"
 )
 
-// snippetRow is one row of the snippet panel: a group's heading, or one of
-// its snippets. The panel shows the groups in the store's order, and each
-// one only when the query matches it or something in it.
+// defaultSnippetGroup names the group a snippet goes into when the user has
+// none: a fixed name, not the open document's language, so that the same
+// group is used whatever file is in front.
+const defaultSnippetGroup = "default"
+
+// snippetRow is one row of the panel's list: a snippet, and the group it is
+// in, which the "all" view needs to tell two of the same name apart.
 type snippetRow struct {
-	header  bool
 	group   int
 	snippet int
 }
 
 // openSnippets shows the snippet panel, reading the file again so that
-// edits made to it by hand are seen.
-func (a *App) openSnippets() { a.showSnippets(false) }
+// edits made to it by hand are seen. A panel already open only takes the
+// keyboard back to its field.
+func (a *App) openSnippets() { a.showSnippets() }
 
-// openSnippetManager shows the same panel on its management view.
-func (a *App) openSnippetManager() { a.showSnippets(true) }
-
-// showSnippets shows the panel in one of its two views, reading the file
-// when the panel was closed. A panel already open only switches view.
-func (a *App) showSnippets(manage bool) bool {
+// showSnippets shows the panel and tells whether it is there. Opening it
+// starts from the whole collection: "all" groups, no query.
+func (a *App) showSnippets() bool {
 	if a.snippetEditOpen || a.groupEditOpen {
 		return false
 	}
 	if a.snippetsOpen {
-		a.snippetsManage = manage
-		if !manage {
-			a.snippetsFocus = true
-		}
+		a.snippetsFocus = true
 		a.refreshSnippetRows()
 		a.update()
 		return true
@@ -50,9 +48,9 @@ func (a *App) showSnippets(manage bool) bool {
 		return false
 	}
 	a.snippetsOpen = true
-	a.snippetsManage = manage
-	a.snippetsFocus = !manage
+	a.snippetsFocus = true
 	a.snippetsQuery = ""
+	a.snippetsGroup = -1
 	a.snippetsList = ui.ListState{}
 	a.refreshSnippetRows()
 	a.update()
@@ -60,8 +58,7 @@ func (a *App) showSnippets(manage bool) bool {
 }
 
 // panelOpen reports whether something else already covers the window, so
-// that a second panel does not stack on it. The snippet panel itself is
-// not counted: its two views replace one another.
+// that a second panel does not stack on it.
 func (a *App) panelOpen() bool {
 	return a.showSettings || a.aboutOpen || a.renameOpen || a.createOpen ||
 		a.searchOpen || a.snippetEditOpen || a.groupEditOpen
@@ -74,9 +71,9 @@ func (a *App) panelOpen() bool {
 // opening the panel starts the list afresh instead.
 func (a *App) closeSnippets() {
 	a.snippetsOpen = false
-	a.snippetsManage = false
 	a.snippetsQuery = ""
 	a.snippetsRows = nil
+	a.snippetCounts = nil
 	a.update()
 }
 
@@ -107,37 +104,82 @@ func (a *App) saveSnippets() bool {
 	return true
 }
 
-// refreshSnippetRows rebuilds the panel's rows from the query and puts the
-// choice on the first snippet.
+// refreshSnippetRows rebuilds the list from the query and the chosen group,
+// and counts the matches of each group for the column on the left. The
+// snippet chosen stays chosen while it is still listed.
 func (a *App) refreshSnippetRows() {
+	keep := ""
+	if sn, _, ok := a.selectedSnippet(); ok {
+		keep = sn.ID
+	}
 	rows := a.snippetsRows[:0]
+	counts := a.snippetCounts[:0]
 	a.snippetsSel = -1
 	if a.snippets == nil {
-		a.snippetsRows = rows
+		a.snippetsRows, a.snippetCounts = rows, counts
 		return
 	}
 	q := strings.ToLower(strings.TrimSpace(a.snippetsQuery))
 	for gi, g := range a.snippets.Groups() {
-		at := len(rows)
+		n := 0
 		for si, sn := range g.Snippets {
 			if q != "" && !foldContains(g.Name, q) &&
 				!foldContains(sn.Name, q) && !foldContains(sn.Body, q) {
 				continue
 			}
-			rows = append(rows, snippetRow{group: gi, snippet: si})
+			n++
+			if a.snippetsGroup == -1 || a.snippetsGroup == gi {
+				rows = append(rows, snippetRow{group: gi, snippet: si})
+			}
 		}
-		if len(rows) == at {
-			continue
-		}
-		// The heading goes in front of the group's rows.
-		rows = append(rows, snippetRow{})
-		copy(rows[at+1:], rows[at:])
-		rows[at] = snippetRow{header: true, group: gi}
-		if a.snippetsSel < 0 {
-			a.snippetsSel = at + 1
+		counts = append(counts, n)
+	}
+	a.snippetsRows, a.snippetCounts = rows, counts
+	if keep != "" {
+		for i, row := range rows {
+			if sn, ok := a.rowSnippet(row); ok && sn.ID == keep {
+				a.snippetsSel = i
+				break
+			}
 		}
 	}
-	a.snippetsRows = rows
+	if a.snippetsSel < 0 && len(rows) > 0 {
+		a.snippetsSel = 0
+	}
+}
+
+// rowSnippet returns the snippet a row stands for.
+func (a *App) rowSnippet(row snippetRow) (snippets.Snippet, bool) {
+	if a.snippets == nil {
+		return snippets.Snippet{}, false
+	}
+	groups := a.snippets.Groups()
+	if row.group < 0 || row.group >= len(groups) {
+		return snippets.Snippet{}, false
+	}
+	snips := groups[row.group].Snippets
+	if row.snippet < 0 || row.snippet >= len(snips) {
+		return snippets.Snippet{}, false
+	}
+	return snips[row.snippet], true
+}
+
+// snippetAt returns the snippet row i shows, and its group.
+func (a *App) snippetAt(i int) (snippets.Snippet, int, bool) {
+	if i < 0 || i >= len(a.snippetsRows) {
+		return snippets.Snippet{}, 0, false
+	}
+	row := a.snippetsRows[i]
+	sn, ok := a.rowSnippet(row)
+	if !ok {
+		return snippets.Snippet{}, 0, false
+	}
+	return sn, row.group, true
+}
+
+// selectedSnippet returns the snippet the list's choice points at.
+func (a *App) selectedSnippet() (snippets.Snippet, int, bool) {
+	return a.snippetAt(a.snippetsSel)
 }
 
 // foldContains reports whether text holds the lowercased needle, ignoring
@@ -156,54 +198,48 @@ func foldContains(text, needle string) bool {
 	return false
 }
 
-// selectedSnippet returns the snippet the panel's choice points at.
-func (a *App) selectedSnippet() (snippets.Snippet, bool) {
-	if a.snippets == nil || a.snippetsSel < 0 || a.snippetsSel >= len(a.snippetsRows) {
-		return snippets.Snippet{}, false
-	}
-	row := a.snippetsRows[a.snippetsSel]
-	if row.header {
-		return snippets.Snippet{}, false
-	}
-	groups := a.snippets.Groups()
-	if row.group < 0 || row.group >= len(groups) {
-		return snippets.Snippet{}, false
-	}
-	snips := groups[row.group].Snippets
-	if row.snippet < 0 || row.snippet >= len(snips) {
-		return snippets.Snippet{}, false
-	}
-	return snips[row.snippet], true
-}
-
-// moveSnippetSelection steps the choice by dir, round the ends, skipping
-// the group headings.
+// moveSnippetSelection steps the choice by dir, round the ends.
 func (a *App) moveSnippetSelection(dir int) {
 	n := len(a.snippetsRows)
 	if n == 0 {
 		return
 	}
-	start := a.snippetsSel
-	if start < 0 || start >= n {
-		start = 0
-	}
-	for i := 1; i <= n; i++ {
-		row := (start + dir*i) % n
-		if row < 0 {
-			row += n
-		}
-		if !a.snippetsRows[row].header {
-			a.snippetsSel = row
-			a.snippetsList.ScrollIntoView(row)
-			a.update()
-			return
+	sel := a.snippetsSel
+	if sel < 0 || sel >= n {
+		sel = 0
+		if dir < 0 {
+			sel = n
 		}
 	}
+	sel = (sel + dir) % n
+	if sel < 0 {
+		sel += n
+	}
+	a.snippetsSel = sel
+	a.snippetsList.ScrollIntoView(sel)
+	a.update()
+}
+
+// snippetMatchCount is how many snippets of group i the query matches.
+func (a *App) snippetMatchCount(i int) int {
+	if i < 0 || i >= len(a.snippetCounts) {
+		return 0
+	}
+	return a.snippetCounts[i]
+}
+
+// snippetMatchTotal is how many snippets the query matches, in all groups.
+func (a *App) snippetMatchTotal() int {
+	n := 0
+	for _, c := range a.snippetCounts {
+		n += c
+	}
+	return n
 }
 
 // insertSelectedSnippet puts the chosen snippet into the active tab.
 func (a *App) insertSelectedSnippet() {
-	if sn, ok := a.selectedSnippet(); ok {
+	if sn, _, ok := a.selectedSnippet(); ok {
 		a.insertSnippet(sn)
 	}
 }
@@ -229,14 +265,16 @@ func (a *App) snippetTarget() (*Tab, string) {
 }
 
 // insertSnippet puts a snippet's text at the active tab's carets, replacing
-// what is selected there, and closes the panel.
+// what is selected there, and closes the panel. The text is inserted as it
+// is: a snippet meant to stand on its own lines ends with one, and an
+// inline one does not, so nothing is added at its end.
 func (a *App) insertSnippet(sn snippets.Snippet) {
 	tab, why := a.snippetTarget()
 	if tab == nil {
 		a.SetErrorToast(locales.SnippetInsertFailed(), why)
 		return
 	}
-	body := strings.TrimRight(snippets.NormalizeBody(sn.Body), "\n")
+	body := snippets.NormalizeBody(sn.Body)
 	if strings.TrimSpace(body) == "" {
 		a.SetErrorToast(locales.SnippetInsertFailed(), locales.SnippetBodyEmpty())
 		return
@@ -265,7 +303,15 @@ func insertSnippetText(tab *Tab, text string) {
 	list := make([]insertion, 0, len(sels))
 	for _, s := range sels {
 		start, end := s.Start(), s.End()
-		list = append(list, insertion{start: start, end: end, text: alignToLine(buf, start, text)})
+		text := alignSnippet(buf, start, text)
+		// A collapsed caret at the end of a line where the snippet brings
+		// its own break takes that line's break too, so a block does not
+		// leave a blank line before what followed it.
+		if start == end && end < buf.Len() && strings.HasSuffix(text, "\n") &&
+			lineEndsAt(buf, start) {
+			end++
+		}
+		list = append(list, insertion{start: start, end: end, text: text})
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].start > list[j].start })
 
@@ -288,8 +334,30 @@ func insertSnippetText(tab *Tab, text string) {
 	tab.state.SetSelections(out...)
 }
 
+// alignSnippet indents a snippet's lines after the first to the line the
+// caret is on, as the JSON tool's output does. A snippet that ends with a
+// newline, so that it stands on its own lines, keeps no indentation after
+// that last one: the caret comes to rest at the start of the next line.
+func alignSnippet(buf *editor.Buffer, start int, text string) string {
+	out := alignToLine(buf, start, text)
+	if !strings.HasSuffix(text, "\n") {
+		return out
+	}
+	if prefix := lineIndent(buf, start); prefix != "" {
+		out = strings.TrimSuffix(out, prefix)
+	}
+	return out
+}
+
+// lineEndsAt reports whether off is at the end of its line, so that the
+// byte after it, when there is one, is that line's break.
+func lineEndsAt(buf *editor.Buffer, off int) bool {
+	p := buf.Pos(off)
+	return p.Col >= len(buf.Line(p.Line))
+}
+
 // snippetSelection returns the text selected in the active tab, which is
-// what "new snippet from selection" saves.
+// what a new snippet takes as its body.
 func snippetSelection(tab *Tab) string {
 	parts := make([]string, 0, 4)
 	for _, s := range tab.state.Selections() {
@@ -299,6 +367,57 @@ func snippetSelection(tab *Tab) string {
 		parts = append(parts, tab.doc.Buffer.Slice(s.Start(), s.End()))
 	}
 	return strings.Join(parts, "\n")
+}
+
+// selectionForSnippet returns the text selected in the active tab, when it
+// can become a snippet's body: a tab that takes edits, a text that is not
+// empty, and one within the size the store allows.
+func (a *App) selectionForSnippet() (string, bool) {
+	tab := a.activeTab()
+	if tab == nil || tab.preview || tab.doc.ReadOnly {
+		return "", false
+	}
+	text := snippetSelection(tab)
+	if strings.TrimSpace(text) == "" || len(text) > snippets.MaxBodyBytes {
+		return "", false
+	}
+	return text, true
+}
+
+// newSnippet asks for a snippet in the chosen group. The text selected in
+// the active tab, if there is any, is what it starts with: the selection is
+// usually what the user wants to keep.
+func (a *App) newSnippet() {
+	if a.snippetEditOpen || a.groupEditOpen {
+		return
+	}
+	if !a.snippetsOpen && !a.showSnippets() {
+		return
+	}
+	group := a.newSnippetGroupID()
+	if group == "" {
+		return
+	}
+	a.openSnippetDialog(group, "")
+	if text, ok := a.selectionForSnippet(); ok {
+		a.snippetEditBody = snippets.NormalizeBody(text)
+		a.snippetEditName = snippetNameFrom(text)
+	}
+	a.update()
+}
+
+// newSnippetGroupID is where a new snippet goes: the group of the snippet
+// chosen, else the group on view, else the first one, or a new "default".
+func (a *App) newSnippetGroupID() string {
+	if _, gi, ok := a.selectedSnippet(); ok {
+		if id := a.groupIDAt(gi); id != "" {
+			return id
+		}
+	}
+	if id := a.groupIDAt(a.snippetsGroup); id != "" {
+		return id
+	}
+	return a.defaultGroupID()
 }
 
 // openSnippetFromSelection asks for the name of a snippet holding the text
@@ -317,24 +436,11 @@ func (a *App) openSnippetFromSelection() {
 		a.SetErrorToast(locales.SnippetFromSelection(), locales.SnippetBodyTooLarge(snippets.MaxBodyBytes/1024))
 		return
 	}
-	if a.panelOpen() {
-		return
-	}
-	// The panel opens behind the dialog, so that cancelling the dialog
-	// leaves the user where they were.
-	if !a.showSnippets(false) {
-		return
-	}
-	group := a.defaultGroupID()
-	a.openSnippetDialog(group, "")
-	a.snippetEditBody = snippets.NormalizeBody(text)
-	a.snippetEditName = snippetNameFrom(text)
-	a.refreshSnippetRows()
-	a.update()
+	a.newSnippet()
 }
 
-// snippetNameFrom is the first line of a text, shortened, as the name a new
-// snippet starts with.
+// snippetNameFrom is the first line of a text, shortened to the length a
+// name may take, as the name a new snippet starts with.
 func snippetNameFrom(text string) string {
 	line := text
 	if i := strings.IndexByte(line, '\n'); i >= 0 {
@@ -342,69 +448,81 @@ func snippetNameFrom(text string) string {
 	}
 	line = strings.TrimSpace(line)
 	runes := []rune(line)
-	if len(runes) > 40 {
-		return string(runes[:40])
+	if len(runes) > snippets.MaxNameRunes {
+		return string(runes[:snippets.MaxNameRunes])
 	}
 	return line
 }
 
 // defaultGroupID is the group a snippet made without choosing one goes
-// into: the first group, or a new default one, named after the language of
-// the active document when it has one.
+// into: the first group, or a new "default" one.
 func (a *App) defaultGroupID() string {
+	if a.snippets == nil {
+		return ""
+	}
 	if groups := a.snippets.Groups(); len(groups) > 0 {
 		return groups[0].ID
 	}
-	name := locales.SnippetDefaultGroup()
-	if tab := a.activeTab(); tab != nil && tab.doc.Language != nil {
-		name = tab.doc.Language.Name
-	}
-	g, err := a.snippets.AddGroup(name)
+	g, err := a.snippets.AddGroup(defaultSnippetGroup)
 	if err != nil {
 		return ""
 	}
 	a.saveSnippets()
-	a.selectGroup(g.ID)
 	return g.ID
 }
 
-// selectGroup puts the management view on the group with id.
-func (a *App) selectGroup(id string) {
+// groupAt returns the group at index i, where -1 is the "all" view.
+func (a *App) groupAt(i int) (snippets.Group, bool) {
 	if a.snippets == nil {
-		a.snippetsGroup = 0
-		return
+		return snippets.Group{}, false
 	}
-	for i, g := range a.snippets.Groups() {
-		if g.ID == id {
-			a.snippetsGroup = i
-			return
+	groups := a.snippets.Groups()
+	if i < 0 || i >= len(groups) {
+		return snippets.Group{}, false
+	}
+	return groups[i], true
+}
+
+// groupIDAt is the id of the group at index i, "" for "all".
+func (a *App) groupIDAt(i int) string {
+	if g, ok := a.groupAt(i); ok {
+		return g.ID
+	}
+	return ""
+}
+
+// groupNameAt is the name of the group at index i.
+func (a *App) groupNameAt(i int) string {
+	if g, ok := a.groupAt(i); ok {
+		return g.Name
+	}
+	return ""
+}
+
+// selectGroup puts the panel on the group with id.
+func (a *App) selectGroup(id string) {
+	if a.snippets != nil {
+		for i, g := range a.snippets.Groups() {
+			if g.ID == id {
+				a.snippetsGroup = i
+				return
+			}
 		}
 	}
 	a.selectGroupIndex(a.snippetsGroup)
 }
 
-// selectGroupIndex keeps the chosen group within the groups that exist.
+// selectGroupIndex keeps the chosen group within the groups that exist,
+// where -1 is the "all" view.
 func (a *App) selectGroupIndex(i int) {
 	n := 0
 	if a.snippets != nil {
 		n = len(a.snippets.Groups())
 	}
 	if i < 0 || i >= n {
-		i = 0
+		i = -1
 	}
 	a.snippetsGroup = i
-}
-
-// chosenGroup returns the group the management view is on.
-func (a *App) chosenGroup() (snippets.Group, int, bool) {
-	if a.snippets == nil {
-		return snippets.Group{}, 0, false
-	}
-	groups := a.snippets.Groups()
-	if a.snippetsGroup < 0 || a.snippetsGroup >= len(groups) {
-		return snippets.Group{}, 0, false
-	}
-	return groups[a.snippetsGroup], a.snippetsGroup, true
 }
 
 // openGroupDialog asks for a group's name: a new group when id is empty,
@@ -424,7 +542,8 @@ func (a *App) openGroupDialog(id string) {
 	a.update()
 }
 
-// applyGroupEdit adds or renames a group with the name in the dialog.
+// applyGroupEdit adds or renames a group with the name in the dialog. A new
+// group is shown at once, so its snippets can be added next.
 func (a *App) applyGroupEdit() {
 	if a.snippets == nil {
 		return
@@ -491,6 +610,9 @@ func (a *App) existingGroupID(id string) string {
 }
 
 // applySnippetEdit adds or rewrites a snippet with what the dialog holds.
+//
+// The group on view stays on view: an addition made from the "all" list does
+// not throw the user into the group it went to.
 func (a *App) applySnippetEdit() {
 	if a.snippets == nil {
 		return
@@ -522,27 +644,22 @@ func (a *App) applySnippetEdit() {
 	}
 	a.snippetEditOpen = false
 	a.snippetEditErr = ""
-	a.selectGroup(groupID)
+	if a.snippetsGroup != -1 {
+		a.selectGroup(groupID)
+	}
 	a.refreshSnippetRows()
 	a.selectSnippetRow(id)
 	a.update()
 }
 
-// selectSnippetRow puts the panel's choice on the snippet with id, when the
+// selectSnippetRow puts the list's choice on the snippet with id, when the
 // rows show it.
 func (a *App) selectSnippetRow(id string) {
-	groups := a.snippets.Groups()
-	for i, row := range a.snippetsRows {
-		if row.header {
-			continue
-		}
-		if row.group >= 0 && row.group < len(groups) {
-			snips := groups[row.group].Snippets
-			if row.snippet >= 0 && row.snippet < len(snips) && snips[row.snippet].ID == id {
-				a.snippetsSel = i
-				a.snippetsList.ScrollIntoView(i)
-				return
-			}
+	for i := range a.snippetsRows {
+		if sn, _, ok := a.snippetAt(i); ok && sn.ID == id {
+			a.snippetsSel = i
+			a.snippetsList.ScrollIntoView(i)
+			return
 		}
 	}
 }
@@ -584,6 +701,10 @@ func (a *App) deleteGroup(id string) {
 	if a.snippets == nil {
 		return
 	}
+	chosen := ""
+	if a.snippetsGroup >= 0 && a.groupIDAt(a.snippetsGroup) != id {
+		chosen = a.groupIDAt(a.snippetsGroup)
+	}
 	if err := a.snippets.DeleteGroup(id); err != nil {
 		a.SetErrorToast(locales.SnippetsSaveFailed(), snippetGroupErrorText(err))
 		return
@@ -591,7 +712,11 @@ func (a *App) deleteGroup(id string) {
 	if !a.saveSnippets() {
 		return
 	}
-	a.selectGroupIndex(a.snippetsGroup)
+	if chosen == "" {
+		a.snippetsGroup = -1
+	} else {
+		a.selectGroup(chosen)
+	}
 	a.refreshSnippetRows()
 	a.update()
 }

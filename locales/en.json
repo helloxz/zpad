@@ -455,24 +455,36 @@
   "recreate": "Recreate",
   "snippets": "Snippets",
   "insertSnippetEllipsis": "Insert Snippet…",
-  "manageSnippets": "Manage Snippets",
   "snippetFromSelectionEllipsis": "New Snippet from Selection…",
   "snippetFromSelection": "New Snippet from Selection",
-  "snippetManagerTitle": "Snippets · Manage",
-  "snippetSearchLabel": "Search snippets…",
+  "snippetSearchLabel": "Search code snippets…",
   "snippetPaletteHint": "↑↓ to choose · ↵ to insert · Esc to close",
   "snippetVimHint": "Vim mode is on, so a snippet cannot be inserted",
   "snippetNone": "No snippets yet",
-  "snippetNoneHint": "Create a group, then add snippets to it.",
+  "snippetNoneHint": "Use New Snippet to add one.",
   "snippetNoMatch": "No snippet matches",
-  "snippetNoGroup": "No group",
+  "snippetAllGroups": "All",
+  "snippetAllSnippets": "All Snippets",
   "snippetGroups": "Groups",
   "snippetNewGroup": "New Group",
   "snippetRenameGroup": "Rename Group",
+  "snippetDeleteGroup": "Delete Group",
   "snippetNewSnippet": "New Snippet",
   "snippetEditTitle": "Edit Snippet",
   "snippetNameLabel": "Name",
   "snippetBodyLabel": "Text",
+  "snippetGroupOf": "Group: {name}",
+  "@snippetGroupOf": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "JavaScript"
+      }
+    }
+  },
+  "snippetNamePlaceholder": "e.g. console.log",
+  "snippetGroupNamePlaceholder": "Enter a group name",
+  "snippetBodyPlaceholder": "e.g. console.log(x);",
   "snippetCount": "{count, plural, one {# snippet} other {# snippets}}",
   "@snippetCount": {
     "placeholders": {
@@ -540,7 +552,16 @@
   "snippetNoPreview": "A Markdown preview cannot take a snippet",
   "snippetReadOnly": "This file is read-only",
   "snippetNoSelection": "Select the text to save as a snippet first",
-  "snippetDefaultGroup": "My Snippets",
+  "snippetOtherGroups": "{count, plural, one {# snippet in other groups} other {# snippets in other groups}}",
+  "@snippetOtherGroups": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "snippetShowAll": "Show All",
   "snippetsLoadFailed": "Could not read the snippets",
   "snippetsSaveFailed": "Could not save the snippets"
 }

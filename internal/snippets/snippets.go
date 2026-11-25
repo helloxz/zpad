@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/helloxz/zpad/internal/atomicfile"
 )
@@ -34,8 +35,10 @@ const (
 	// snippet is a phrase or a few lines of code, not a document, and the
 	// cap keeps the whole file small enough to hold in memory.
 	MaxBodyBytes = 8 << 10
-	// MaxNameBytes is the most bytes a group or snippet name may take.
-	MaxNameBytes = 120
+	// MaxNameRunes is the most characters a group or snippet name may take.
+	// The column it is listed in shows about twenty, and a name is a label:
+	// longer ones are cut in the list, and refused when one is typed.
+	MaxNameRunes = 40
 )
 
 // The reasons a change is refused. A caller shows them in the dialog that
@@ -107,29 +110,28 @@ func Load(dir string) (*Store, error) {
 
 // repair fills in what a file written by hand, or by an older version,
 // leaves out: the ids names are matched by, and the line endings the
-// editor's buffer takes. A group or snippet without a name has nothing to
-// show, so it goes.
+// editor's buffer takes. Only an item without a name goes, since it has
+// nothing to show: a name that is now too long is kept, and editing it
+// asks for a shorter one, because dropping it would lose what it holds.
 func (s *Store) repair() {
 	groups := s.groups[:0]
 	for _, g := range s.groups {
-		name, err := cleanName(g.Name)
-		if err != nil {
+		g.Name = normalizeName(g.Name)
+		if g.Name == "" {
 			continue
 		}
-		g.Name = name
 		if g.ID == "" {
 			g.ID = newID("g")
 		}
 		snips := g.Snippets[:0]
 		for _, sn := range g.Snippets {
-			snName, err := cleanName(sn.Name)
-			if err != nil {
+			sn.Name = normalizeName(sn.Name)
+			if sn.Name == "" {
 				continue
 			}
 			if sn.ID == "" {
 				sn.ID = newID("s")
 			}
-			sn.Name = snName
 			sn.Body = NormalizeBody(sn.Body)
 			snips = append(snips, sn)
 		}
@@ -314,15 +316,33 @@ func cleanSnippet(name, body string) (string, string, error) {
 
 // cleanName trims a name and folds its spaces into one each, so that a
 // name typed with a stray newline or a double space is still a name.
+// cleanName folds a name's whitespace and refuses an empty or long one.
 func cleanName(name string) (string, error) {
-	name = strings.Join(strings.Fields(name), " ")
+	name = normalizeName(name)
 	if name == "" {
 		return "", ErrNameEmpty
 	}
-	if len(name) > MaxNameBytes {
+	if utf8.RuneCountInString(name) > MaxNameRunes {
 		return "", ErrNameTooLong
 	}
 	return name, nil
+}
+
+// normalizeName folds the spaces of a name into one each and drops the
+// control characters a paste may bring, which the list could only draw as
+// boxes. A name is a label, not a path: a slash in it is allowed.
+func normalizeName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			// Fields folds these into a space.
+			return ' '
+		}
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, name)
+	return strings.Join(strings.Fields(name), " ")
 }
 
 func (s *Store) groupIndex(id string) int {
