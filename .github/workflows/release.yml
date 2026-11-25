@@ -94,12 +94,21 @@ jobs:
           cd build
           # A portable copy runs from any writable folder, without the
           # installer and without the updater's file list, which only an
-          # installed app has.
-          rm -rf ZPad
-          cp -a windows-amd64 ZPad
-          rm -f ZPad/.mygo-files ZPad/install.ps1 ZPad/zpad-setup-*.exe
-          rm -f ZPad/zpad-*.tar.gz ZPad/*.delta ZPad/update-*.json
-          zip -qr "zpad-$v-windows-amd64-portable.zip" ZPad
+          # installed app has. Its files go at the zip's root, so extracting
+          # leaves ZPad.exe ready to run: no folder to move it out of.
+          rm -rf ZPad-portable
+          mkdir ZPad-portable
+          cp -a windows-amd64/. ZPad-portable/
+          rm -f ZPad-portable/.mygo-files ZPad-portable/install.ps1 ZPad-portable/zpad-setup-*.exe
+          rm -f ZPad-portable/zpad-*.tar.gz ZPad-portable/*.delta ZPad-portable/update-*.json
+          (cd ZPad-portable && zip -qr "../zpad-$v-windows-amd64-portable.zip" .)
+          # A wrapper folder would put the exe one level down; keep it at the
+          # root so "extract here" leaves the app ready to run.
+          listing=$(unzip -Z1 "zpad-$v-windows-amd64-portable.zip")
+          if ! grep -qx 'ZPad.exe' <<<"$listing"; then
+            echo "::error::ZPad.exe is not at the portable zip's root; extracting must not need a folder step"
+            exit 1
+          fi
       - name: Upload the portable copy
         env:
           GH_TOKEN: ${{ github.token }}

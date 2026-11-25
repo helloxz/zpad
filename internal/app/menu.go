@@ -50,6 +50,13 @@ func (a *App) menuItems() []*mygo.MenuItem {
 			{Label: locales.TitleCase(), Click: func(*mygo.MenuItem, *mygo.Window) { a.ConvertCase(caseconv.Title) }},
 			{Label: locales.InvertCase(), Click: func(*mygo.MenuItem, *mygo.Window) { a.ConvertCase(caseconv.Invert) }},
 		}},
+		mygo.Separator(),
+		{Label: locales.Snippets(), Submenu: []*mygo.MenuItem{
+			{Label: locales.InsertSnippetEllipsis(), Accelerator: "CmdOrCtrl+Alt+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippets() }},
+			{Label: locales.ManageSnippets(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippetManager() }},
+			mygo.Separator(),
+			{Label: locales.SnippetFromSelectionEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippetFromSelection() }},
+		}},
 	}
 
 	viewMenu := []*mygo.MenuItem{

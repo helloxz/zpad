@@ -452,5 +452,95 @@
   "reload": "Reload",
   "keepMine": "Keep Mine",
   "fileMissingQuestion": "The file no longer exists. Recreate it?",
-  "recreate": "Recreate"
+  "recreate": "Recreate",
+  "snippets": "Snippets",
+  "insertSnippetEllipsis": "Insert Snippet…",
+  "manageSnippets": "Manage Snippets",
+  "snippetFromSelectionEllipsis": "New Snippet from Selection…",
+  "snippetFromSelection": "New Snippet from Selection",
+  "snippetManagerTitle": "Snippets · Manage",
+  "snippetSearchLabel": "Search snippets…",
+  "snippetPaletteHint": "↑↓ to choose · ↵ to insert · Esc to close",
+  "snippetVimHint": "Vim mode is on, so a snippet cannot be inserted",
+  "snippetNone": "No snippets yet",
+  "snippetNoneHint": "Create a group, then add snippets to it.",
+  "snippetNoMatch": "No snippet matches",
+  "snippetNoGroup": "No group",
+  "snippetGroups": "Groups",
+  "snippetNewGroup": "New Group",
+  "snippetRenameGroup": "Rename Group",
+  "snippetNewSnippet": "New Snippet",
+  "snippetEditTitle": "Edit Snippet",
+  "snippetNameLabel": "Name",
+  "snippetBodyLabel": "Text",
+  "snippetCount": "{count, plural, one {# snippet} other {# snippets}}",
+  "@snippetCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "snippetNameEmpty": "The name cannot be empty",
+  "snippetNameTaken": "Another snippet in this group has that name",
+  "snippetGroupNameTaken": "Another group has that name",
+  "snippetNameTooLong": "The name is too long",
+  "snippetBodyEmpty": "The snippet needs some text",
+  "snippetBodyTooLarge": "The text must be at most {kb} KB",
+  "@snippetBodyTooLarge": {
+    "placeholders": {
+      "kb": {
+        "type": "int",
+        "example": "8"
+      }
+    }
+  },
+  "snippetTooMany": "At most {count} snippets",
+  "@snippetTooMany": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "100"
+      }
+    }
+  },
+  "snippetNotFound": "The snippet no longer exists",
+  "snippetGroupNotFound": "The group no longer exists",
+  "snippetDeleteGroupQuestion": "Delete the group “{name}”?",
+  "@snippetDeleteGroupQuestion": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "JavaScript"
+      }
+    }
+  },
+  "snippetDeleteGroupDetail": "{count, plural, one {Its # snippet is deleted with it.} other {Its # snippets are deleted with it.}}",
+  "@snippetDeleteGroupDetail": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "snippetDeleteSnippetQuestion": "Delete the snippet “{name}”?",
+  "@snippetDeleteSnippetQuestion": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "console.log"
+      }
+    }
+  },
+  "snippetInsertFailed": "Could not insert the snippet",
+  "snippetNoVim": "Snippets cannot be inserted while Vim mode is on",
+  "snippetNoTab": "Open a file first",
+  "snippetNoPreview": "A Markdown preview cannot take a snippet",
+  "snippetReadOnly": "This file is read-only",
+  "snippetNoSelection": "Select the text to save as a snippet first",
+  "snippetDefaultGroup": "My Snippets",
+  "snippetsLoadFailed": "Could not read the snippets",
+  "snippetsSaveFailed": "Could not save the snippets"
 }

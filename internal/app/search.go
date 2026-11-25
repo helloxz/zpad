@@ -344,7 +344,8 @@ func splitPreview(h searchHit) (string, string, string) {
 // openSearchPanel shows the panel, focused. Nothing is searched until the
 // user asks, with Enter or the search button.
 func (a *App) openSearchPanel() {
-	if a.showSettings || a.aboutOpen || a.renameOpen {
+	if a.showSettings || a.aboutOpen || a.renameOpen || a.snippetsOpen ||
+		a.snippetEditOpen || a.groupEditOpen {
 		return
 	}
 	a.searchOpen = true

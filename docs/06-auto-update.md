@@ -53,7 +53,7 @@ GitHub Releases：`updates.github = "helloxz/zpad"`，默认 `tagPrefix` 为 `v`
 | --- | --- |
 | `zpad-0.3.2-arm64.dmg`、`zpad-0.3.2-amd64.dmg` | `mygo build` 默认命名，CI 不改名 |
 | `zpad-setup-0.3.2-amd64.exe` | `mygo build` 默认命名 |
-| `zpad-0.3.2-windows-amd64-portable.zip` | CI 额外打的 Windows 绿色版，唯一非 MyGo 产物 |
+| `zpad-0.3.2-windows-amd64-portable.zip` | CI 额外打的 Windows 绿色版，唯一非 MyGo 产物；文件平铺在压缩包根目录，解压即得 `ZPad.exe` |
 | `zpad-0.3.2-darwin-arm64.tar.gz` | 不可改名：manifest 里写死了 URL |
 | `zpad_<版本>_amd64.deb`、`zpad-<版本>-1.x86_64.rpm` | Linux 软件包，`linux.formats` 决定写哪些 |
 | `zpad-<版本>-linux-amd64.tar.gz` | Linux 通用包，`install.sh` 装的就是它，不可改名 |
@@ -72,7 +72,7 @@ GitHub Releases：`updates.github = "helloxz/zpad"`，默认 `tagPrefix` 为 `v`
    - Windows：生成并上传安装包、`.tar.gz`、`.delta`、`update-windows-amd64.json` 与 `install.ps1`。
    - Linux：生成并上传 `.deb`、`.rpm`、`.tar.gz`、`.delta`、`update-linux-amd64.json` 与 `install.sh`。
    - `-upload` 自己按“安装包 / 更新包 → manifest”的顺序上传，并合并各作业的 `SHA256SUMS`。
-4. Windows 作业额外打 `zpad-<版本>-windows-amd64-portable.zip` 并上传。
+4. Windows 作业额外打 `zpad-<版本>-windows-amd64-portable.zip` 并上传：排除 `.mygo-files`、安装包与更新文件后，把内容平铺进压缩包根目录（不套 `ZPad/`），并校验 `ZPad.exe` 位于归档根目录。
 5. 在 GitHub 上检查 draft，**等 macOS、Windows 与 Linux 作业都变绿、资产齐全**再发布为 **latest**（不要勾选 pre-release）。
 
    发布时机不能提前：release 一发布就是 `releases/latest`，应用会立刻检查到新版本；此时更新清单还没上传，`releases/latest/download/update-<target>.json` 会返回 404，所以等文件齐全再 Publish。

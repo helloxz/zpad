@@ -2743,3 +2743,429 @@ func Recreate() string { return In(i18n.Locale()).Recreate() }
 func (msgs Messages) Recreate() string {
 	return Catalog.Format(msgs.locale, "recreate", nil)
 }
+
+// Snippets says "Snippets"
+// in the language the app shows.
+func Snippets() string { return In(i18n.Locale()).Snippets() }
+
+// Snippets says "Snippets"
+// in the language of msgs.
+func (msgs Messages) Snippets() string {
+	return Catalog.Format(msgs.locale, "snippets", nil)
+}
+
+// InsertSnippetEllipsis says "Insert Snippet…"
+// in the language the app shows.
+func InsertSnippetEllipsis() string { return In(i18n.Locale()).InsertSnippetEllipsis() }
+
+// InsertSnippetEllipsis says "Insert Snippet…"
+// in the language of msgs.
+func (msgs Messages) InsertSnippetEllipsis() string {
+	return Catalog.Format(msgs.locale, "insertSnippetEllipsis", nil)
+}
+
+// ManageSnippets says "Manage Snippets"
+// in the language the app shows.
+func ManageSnippets() string { return In(i18n.Locale()).ManageSnippets() }
+
+// ManageSnippets says "Manage Snippets"
+// in the language of msgs.
+func (msgs Messages) ManageSnippets() string {
+	return Catalog.Format(msgs.locale, "manageSnippets", nil)
+}
+
+// SnippetFromSelectionEllipsis says "New Snippet from Selection…"
+// in the language the app shows.
+func SnippetFromSelectionEllipsis() string { return In(i18n.Locale()).SnippetFromSelectionEllipsis() }
+
+// SnippetFromSelectionEllipsis says "New Snippet from Selection…"
+// in the language of msgs.
+func (msgs Messages) SnippetFromSelectionEllipsis() string {
+	return Catalog.Format(msgs.locale, "snippetFromSelectionEllipsis", nil)
+}
+
+// SnippetFromSelection says "New Snippet from Selection"
+// in the language the app shows.
+func SnippetFromSelection() string { return In(i18n.Locale()).SnippetFromSelection() }
+
+// SnippetFromSelection says "New Snippet from Selection"
+// in the language of msgs.
+func (msgs Messages) SnippetFromSelection() string {
+	return Catalog.Format(msgs.locale, "snippetFromSelection", nil)
+}
+
+// SnippetManagerTitle says "Snippets · Manage"
+// in the language the app shows.
+func SnippetManagerTitle() string { return In(i18n.Locale()).SnippetManagerTitle() }
+
+// SnippetManagerTitle says "Snippets · Manage"
+// in the language of msgs.
+func (msgs Messages) SnippetManagerTitle() string {
+	return Catalog.Format(msgs.locale, "snippetManagerTitle", nil)
+}
+
+// SnippetSearchLabel says "Search snippets…"
+// in the language the app shows.
+func SnippetSearchLabel() string { return In(i18n.Locale()).SnippetSearchLabel() }
+
+// SnippetSearchLabel says "Search snippets…"
+// in the language of msgs.
+func (msgs Messages) SnippetSearchLabel() string {
+	return Catalog.Format(msgs.locale, "snippetSearchLabel", nil)
+}
+
+// SnippetPaletteHint says "↑↓ to choose · ↵ to insert · Esc to close"
+// in the language the app shows.
+func SnippetPaletteHint() string { return In(i18n.Locale()).SnippetPaletteHint() }
+
+// SnippetPaletteHint says "↑↓ to choose · ↵ to insert · Esc to close"
+// in the language of msgs.
+func (msgs Messages) SnippetPaletteHint() string {
+	return Catalog.Format(msgs.locale, "snippetPaletteHint", nil)
+}
+
+// SnippetVimHint says "Vim mode is on, so a snippet cannot be inserted"
+// in the language the app shows.
+func SnippetVimHint() string { return In(i18n.Locale()).SnippetVimHint() }
+
+// SnippetVimHint says "Vim mode is on, so a snippet cannot be inserted"
+// in the language of msgs.
+func (msgs Messages) SnippetVimHint() string {
+	return Catalog.Format(msgs.locale, "snippetVimHint", nil)
+}
+
+// SnippetNone says "No snippets yet"
+// in the language the app shows.
+func SnippetNone() string { return In(i18n.Locale()).SnippetNone() }
+
+// SnippetNone says "No snippets yet"
+// in the language of msgs.
+func (msgs Messages) SnippetNone() string {
+	return Catalog.Format(msgs.locale, "snippetNone", nil)
+}
+
+// SnippetNoneHint says "Create a group, then add snippets to it."
+// in the language the app shows.
+func SnippetNoneHint() string { return In(i18n.Locale()).SnippetNoneHint() }
+
+// SnippetNoneHint says "Create a group, then add snippets to it."
+// in the language of msgs.
+func (msgs Messages) SnippetNoneHint() string {
+	return Catalog.Format(msgs.locale, "snippetNoneHint", nil)
+}
+
+// SnippetNoMatch says "No snippet matches"
+// in the language the app shows.
+func SnippetNoMatch() string { return In(i18n.Locale()).SnippetNoMatch() }
+
+// SnippetNoMatch says "No snippet matches"
+// in the language of msgs.
+func (msgs Messages) SnippetNoMatch() string {
+	return Catalog.Format(msgs.locale, "snippetNoMatch", nil)
+}
+
+// SnippetNoGroup says "No group"
+// in the language the app shows.
+func SnippetNoGroup() string { return In(i18n.Locale()).SnippetNoGroup() }
+
+// SnippetNoGroup says "No group"
+// in the language of msgs.
+func (msgs Messages) SnippetNoGroup() string {
+	return Catalog.Format(msgs.locale, "snippetNoGroup", nil)
+}
+
+// SnippetGroups says "Groups"
+// in the language the app shows.
+func SnippetGroups() string { return In(i18n.Locale()).SnippetGroups() }
+
+// SnippetGroups says "Groups"
+// in the language of msgs.
+func (msgs Messages) SnippetGroups() string {
+	return Catalog.Format(msgs.locale, "snippetGroups", nil)
+}
+
+// SnippetNewGroup says "New Group"
+// in the language the app shows.
+func SnippetNewGroup() string { return In(i18n.Locale()).SnippetNewGroup() }
+
+// SnippetNewGroup says "New Group"
+// in the language of msgs.
+func (msgs Messages) SnippetNewGroup() string {
+	return Catalog.Format(msgs.locale, "snippetNewGroup", nil)
+}
+
+// SnippetRenameGroup says "Rename Group"
+// in the language the app shows.
+func SnippetRenameGroup() string { return In(i18n.Locale()).SnippetRenameGroup() }
+
+// SnippetRenameGroup says "Rename Group"
+// in the language of msgs.
+func (msgs Messages) SnippetRenameGroup() string {
+	return Catalog.Format(msgs.locale, "snippetRenameGroup", nil)
+}
+
+// SnippetNewSnippet says "New Snippet"
+// in the language the app shows.
+func SnippetNewSnippet() string { return In(i18n.Locale()).SnippetNewSnippet() }
+
+// SnippetNewSnippet says "New Snippet"
+// in the language of msgs.
+func (msgs Messages) SnippetNewSnippet() string {
+	return Catalog.Format(msgs.locale, "snippetNewSnippet", nil)
+}
+
+// SnippetEditTitle says "Edit Snippet"
+// in the language the app shows.
+func SnippetEditTitle() string { return In(i18n.Locale()).SnippetEditTitle() }
+
+// SnippetEditTitle says "Edit Snippet"
+// in the language of msgs.
+func (msgs Messages) SnippetEditTitle() string {
+	return Catalog.Format(msgs.locale, "snippetEditTitle", nil)
+}
+
+// SnippetNameLabel says "Name"
+// in the language the app shows.
+func SnippetNameLabel() string { return In(i18n.Locale()).SnippetNameLabel() }
+
+// SnippetNameLabel says "Name"
+// in the language of msgs.
+func (msgs Messages) SnippetNameLabel() string {
+	return Catalog.Format(msgs.locale, "snippetNameLabel", nil)
+}
+
+// SnippetBodyLabel says "Text"
+// in the language the app shows.
+func SnippetBodyLabel() string { return In(i18n.Locale()).SnippetBodyLabel() }
+
+// SnippetBodyLabel says "Text"
+// in the language of msgs.
+func (msgs Messages) SnippetBodyLabel() string {
+	return Catalog.Format(msgs.locale, "snippetBodyLabel", nil)
+}
+
+// SnippetCount says "{count, plural, one {# snippet} other {# snippets}}"
+// in the language the app shows.
+func SnippetCount(count int) string { return In(i18n.Locale()).SnippetCount(count) }
+
+// SnippetCount says "{count, plural, one {# snippet} other {# snippets}}"
+// in the language of msgs.
+func (msgs Messages) SnippetCount(count int) string {
+	return Catalog.Format(msgs.locale, "snippetCount", map[string]any{"count": count})
+}
+
+// SnippetNameEmpty says "The name cannot be empty"
+// in the language the app shows.
+func SnippetNameEmpty() string { return In(i18n.Locale()).SnippetNameEmpty() }
+
+// SnippetNameEmpty says "The name cannot be empty"
+// in the language of msgs.
+func (msgs Messages) SnippetNameEmpty() string {
+	return Catalog.Format(msgs.locale, "snippetNameEmpty", nil)
+}
+
+// SnippetNameTaken says "Another snippet in this group has that name"
+// in the language the app shows.
+func SnippetNameTaken() string { return In(i18n.Locale()).SnippetNameTaken() }
+
+// SnippetNameTaken says "Another snippet in this group has that name"
+// in the language of msgs.
+func (msgs Messages) SnippetNameTaken() string {
+	return Catalog.Format(msgs.locale, "snippetNameTaken", nil)
+}
+
+// SnippetGroupNameTaken says "Another group has that name"
+// in the language the app shows.
+func SnippetGroupNameTaken() string { return In(i18n.Locale()).SnippetGroupNameTaken() }
+
+// SnippetGroupNameTaken says "Another group has that name"
+// in the language of msgs.
+func (msgs Messages) SnippetGroupNameTaken() string {
+	return Catalog.Format(msgs.locale, "snippetGroupNameTaken", nil)
+}
+
+// SnippetNameTooLong says "The name is too long"
+// in the language the app shows.
+func SnippetNameTooLong() string { return In(i18n.Locale()).SnippetNameTooLong() }
+
+// SnippetNameTooLong says "The name is too long"
+// in the language of msgs.
+func (msgs Messages) SnippetNameTooLong() string {
+	return Catalog.Format(msgs.locale, "snippetNameTooLong", nil)
+}
+
+// SnippetBodyEmpty says "The snippet needs some text"
+// in the language the app shows.
+func SnippetBodyEmpty() string { return In(i18n.Locale()).SnippetBodyEmpty() }
+
+// SnippetBodyEmpty says "The snippet needs some text"
+// in the language of msgs.
+func (msgs Messages) SnippetBodyEmpty() string {
+	return Catalog.Format(msgs.locale, "snippetBodyEmpty", nil)
+}
+
+// SnippetBodyTooLarge says "The text must be at most {kb} KB"
+// in the language the app shows.
+func SnippetBodyTooLarge(kb int) string { return In(i18n.Locale()).SnippetBodyTooLarge(kb) }
+
+// SnippetBodyTooLarge says "The text must be at most {kb} KB"
+// in the language of msgs.
+func (msgs Messages) SnippetBodyTooLarge(kb int) string {
+	return Catalog.Format(msgs.locale, "snippetBodyTooLarge", map[string]any{"kb": kb})
+}
+
+// SnippetTooMany says "At most {count} snippets"
+// in the language the app shows.
+func SnippetTooMany(count int) string { return In(i18n.Locale()).SnippetTooMany(count) }
+
+// SnippetTooMany says "At most {count} snippets"
+// in the language of msgs.
+func (msgs Messages) SnippetTooMany(count int) string {
+	return Catalog.Format(msgs.locale, "snippetTooMany", map[string]any{"count": count})
+}
+
+// SnippetNotFound says "The snippet no longer exists"
+// in the language the app shows.
+func SnippetNotFound() string { return In(i18n.Locale()).SnippetNotFound() }
+
+// SnippetNotFound says "The snippet no longer exists"
+// in the language of msgs.
+func (msgs Messages) SnippetNotFound() string {
+	return Catalog.Format(msgs.locale, "snippetNotFound", nil)
+}
+
+// SnippetGroupNotFound says "The group no longer exists"
+// in the language the app shows.
+func SnippetGroupNotFound() string { return In(i18n.Locale()).SnippetGroupNotFound() }
+
+// SnippetGroupNotFound says "The group no longer exists"
+// in the language of msgs.
+func (msgs Messages) SnippetGroupNotFound() string {
+	return Catalog.Format(msgs.locale, "snippetGroupNotFound", nil)
+}
+
+// SnippetDeleteGroupQuestion says "Delete the group “{name}”?"
+// in the language the app shows.
+func SnippetDeleteGroupQuestion(name string) string {
+	return In(i18n.Locale()).SnippetDeleteGroupQuestion(name)
+}
+
+// SnippetDeleteGroupQuestion says "Delete the group “{name}”?"
+// in the language of msgs.
+func (msgs Messages) SnippetDeleteGroupQuestion(name string) string {
+	return Catalog.Format(msgs.locale, "snippetDeleteGroupQuestion", map[string]any{"name": name})
+}
+
+// SnippetDeleteGroupDetail says "{count, plural, one {Its # snippet is deleted with it.} other {Its # snippets are deleted with it.}}"
+// in the language the app shows.
+func SnippetDeleteGroupDetail(count int) string {
+	return In(i18n.Locale()).SnippetDeleteGroupDetail(count)
+}
+
+// SnippetDeleteGroupDetail says "{count, plural, one {Its # snippet is deleted with it.} other {Its # snippets are deleted with it.}}"
+// in the language of msgs.
+func (msgs Messages) SnippetDeleteGroupDetail(count int) string {
+	return Catalog.Format(msgs.locale, "snippetDeleteGroupDetail", map[string]any{"count": count})
+}
+
+// SnippetDeleteSnippetQuestion says "Delete the snippet “{name}”?"
+// in the language the app shows.
+func SnippetDeleteSnippetQuestion(name string) string {
+	return In(i18n.Locale()).SnippetDeleteSnippetQuestion(name)
+}
+
+// SnippetDeleteSnippetQuestion says "Delete the snippet “{name}”?"
+// in the language of msgs.
+func (msgs Messages) SnippetDeleteSnippetQuestion(name string) string {
+	return Catalog.Format(msgs.locale, "snippetDeleteSnippetQuestion", map[string]any{"name": name})
+}
+
+// SnippetInsertFailed says "Could not insert the snippet"
+// in the language the app shows.
+func SnippetInsertFailed() string { return In(i18n.Locale()).SnippetInsertFailed() }
+
+// SnippetInsertFailed says "Could not insert the snippet"
+// in the language of msgs.
+func (msgs Messages) SnippetInsertFailed() string {
+	return Catalog.Format(msgs.locale, "snippetInsertFailed", nil)
+}
+
+// SnippetNoVim says "Snippets cannot be inserted while Vim mode is on"
+// in the language the app shows.
+func SnippetNoVim() string { return In(i18n.Locale()).SnippetNoVim() }
+
+// SnippetNoVim says "Snippets cannot be inserted while Vim mode is on"
+// in the language of msgs.
+func (msgs Messages) SnippetNoVim() string {
+	return Catalog.Format(msgs.locale, "snippetNoVim", nil)
+}
+
+// SnippetNoTab says "Open a file first"
+// in the language the app shows.
+func SnippetNoTab() string { return In(i18n.Locale()).SnippetNoTab() }
+
+// SnippetNoTab says "Open a file first"
+// in the language of msgs.
+func (msgs Messages) SnippetNoTab() string {
+	return Catalog.Format(msgs.locale, "snippetNoTab", nil)
+}
+
+// SnippetNoPreview says "A Markdown preview cannot take a snippet"
+// in the language the app shows.
+func SnippetNoPreview() string { return In(i18n.Locale()).SnippetNoPreview() }
+
+// SnippetNoPreview says "A Markdown preview cannot take a snippet"
+// in the language of msgs.
+func (msgs Messages) SnippetNoPreview() string {
+	return Catalog.Format(msgs.locale, "snippetNoPreview", nil)
+}
+
+// SnippetReadOnly says "This file is read-only"
+// in the language the app shows.
+func SnippetReadOnly() string { return In(i18n.Locale()).SnippetReadOnly() }
+
+// SnippetReadOnly says "This file is read-only"
+// in the language of msgs.
+func (msgs Messages) SnippetReadOnly() string {
+	return Catalog.Format(msgs.locale, "snippetReadOnly", nil)
+}
+
+// SnippetNoSelection says "Select the text to save as a snippet first"
+// in the language the app shows.
+func SnippetNoSelection() string { return In(i18n.Locale()).SnippetNoSelection() }
+
+// SnippetNoSelection says "Select the text to save as a snippet first"
+// in the language of msgs.
+func (msgs Messages) SnippetNoSelection() string {
+	return Catalog.Format(msgs.locale, "snippetNoSelection", nil)
+}
+
+// SnippetDefaultGroup says "My Snippets"
+// in the language the app shows.
+func SnippetDefaultGroup() string { return In(i18n.Locale()).SnippetDefaultGroup() }
+
+// SnippetDefaultGroup says "My Snippets"
+// in the language of msgs.
+func (msgs Messages) SnippetDefaultGroup() string {
+	return Catalog.Format(msgs.locale, "snippetDefaultGroup", nil)
+}
+
+// SnippetsLoadFailed says "Could not read the snippets"
+// in the language the app shows.
+func SnippetsLoadFailed() string { return In(i18n.Locale()).SnippetsLoadFailed() }
+
+// SnippetsLoadFailed says "Could not read the snippets"
+// in the language of msgs.
+func (msgs Messages) SnippetsLoadFailed() string {
+	return Catalog.Format(msgs.locale, "snippetsLoadFailed", nil)
+}
+
+// SnippetsSaveFailed says "Could not save the snippets"
+// in the language the app shows.
+func SnippetsSaveFailed() string { return In(i18n.Locale()).SnippetsSaveFailed() }
+
+// SnippetsSaveFailed says "Could not save the snippets"
+// in the language of msgs.
+func (msgs Messages) SnippetsSaveFailed() string {
+	return Catalog.Format(msgs.locale, "snippetsSaveFailed", nil)
+}

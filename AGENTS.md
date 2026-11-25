@@ -36,7 +36,7 @@ cd website && hugo server   # 官网，http://localhost:1313/
 ZPAD_SHOTS=/tmp/shots go test ./internal/app -run TestSiteScreenshots   # 重截官网截图
 ```
 
-产物沿用 `mygo build` 的默认命名：`build/darwin-arm64/ZPad.app`、`zpad-0.5.0-arm64.dmg`、`zpad-0.5.0-darwin-arm64.tar.gz`、`update-darwin-arm64.json`；Windows 为 `zpad-setup-0.5.0-amd64.exe`、`zpad-0.5.0-windows-amd64.tar.gz`、`update-windows-amd64.json`，CI 额外打一个 `zpad-0.5.0-windows-amd64-portable.zip`；Linux 为 `zpad_0.5.0_amd64.deb`、`zpad-0.5.0-1.x86_64.rpm`、`zpad-0.5.0-linux-amd64.tar.gz`、`update-linux-amd64.json`、`install.sh`（`linux.formats` 里没有 `pkgbuild`，所以不生成 PKGBUILD）。不要重命名这些文件（见下）。
+产物沿用 `mygo build` 的默认命名：`build/darwin-arm64/ZPad.app`、`zpad-0.5.0-arm64.dmg`、`zpad-0.5.0-darwin-arm64.tar.gz`、`update-darwin-arm64.json`；Windows 为 `zpad-setup-0.5.0-amd64.exe`、`zpad-0.5.0-windows-amd64.tar.gz`、`update-windows-amd64.json`，CI 额外打一个 `zpad-0.5.0-windows-amd64-portable.zip`（内容平铺，解压即得 `ZPad.exe`）；Linux 为 `zpad_0.5.0_amd64.deb`、`zpad-0.5.0-1.x86_64.rpm`、`zpad-0.5.0-linux-amd64.tar.gz`、`update-linux-amd64.json`、`install.sh`（`linux.formats` 里没有 `pkgbuild`，所以不生成 PKGBUILD）。不要重命名这些文件（见下）。
 
 ## 产品需求（一期）
 
@@ -47,6 +47,7 @@ ZPAD_SHOTS=/tmp/shots go test ./internal/app -run TestSiteScreenshots   # 重截
 - 状态栏路径旁可调用系统文件管理器定位当前激活标签的文件；未命名文件不显示该按钮。
 - 查找替换（内建 FindBar）、大小写转换（大写 / 小写 / 首字母大写 / 反转，多选区）。
 - 跨文件搜索：`⌘⇧F` 在居中浮层中搜索两个分栏里所有已打开标签的文本（含未保存内容与未命名文件）。输入时不自动搜索，按 `↵` 或点击右侧搜索按钮才搜索；结果按文件分组，`↑`/`↓` 选择，`↵` 打开选中项。关闭面板保留关键词和结果，输入框末尾的 X 清空后才丢弃；`Esc` 只关闭面板。只搜内存中的标签，不读未打开的磁盘文件。
+- 代码片段：工具栏片段按钮（`⌥⌘S`）打开居中面板，搜索框即时过滤分组名 / 片段名 / 正文，按分组列出；`↑`/`↓` 选择，`↵` 或点击插入到当前激活标签的光标处（有选区替换，多光标各插一份，一步撤销，多行跟随行缩进）。「管理片段」可新建 / 重命名 / 删除分组与片段，选中文本时面板顶部有「用当前选区新建片段」。整库最多 100 条、单条正文 8 KB，存于用户数据目录的 `snippets.json`；只读、Markdown 预览与 Vim 模式下不插入。
 - 编码：UTF-8、UTF-8 BOM、UTF-16 LE/BE、GB18030；自动检测 +「重新以编码打开 / 以编码保存」。
 - 换行符：LF / CRLF / CR，保存保留原行尾。
 - 空白字符：设置 → 编辑器可选「显示空白字符」为仅选区（默认）/ 关闭 / 全部 / 仅行尾；空格显示为圆点、Tab 显示为箭头，颜色随主题，全局生效。
@@ -90,6 +91,8 @@ internal/app/
   case.go                  多选区大小写转换
   selections.go            多选区替换：偏移重算与选区恢复
   tools.go                 文本工具：Base64 / MD5 / JSON 与「工具」菜单
+  snippets.go              代码片段：状态、行模型、插入与增删改
+  snippets_ui.go           代码片段：插入面板、管理视图与编辑弹窗
 fonts.go                   嵌入并注册 JetBrains Mono
 fonts/                     JetBrains Mono TTF + OFL
 locales/                   中英文 catalogs + 生成的 catalog_gen.go
@@ -103,6 +106,7 @@ internal/theme/            主题注册表：默认亮 / 暗 + 命名主题（UI
 internal/atomicfile/       原子写文件
 internal/draft/            未保存内容的草稿存储：索引、写入、删除、清空
 internal/vim/              Vim 模式：模式、motion、operator、文本对象
+internal/snippets/         代码片段：模型、校验、原子读写
 docs/                      需求、里程碑、实现记录与签收
 website/                   官网（Hugo）：首页、下载页、双语、发布数据
 ```
@@ -124,7 +128,7 @@ website/                   官网（Hugo）：首页、下载页、双语、发�
 - 单实例用 `mygo.App.RequestSingleInstanceLock()`（`main` 开头）+ `mygo.App.OnSecondInstance(a.HandleSecondInstance)`：第二进程立即退出，第一个实例前置窗口后打开传来的文件 / 文件夹。参数由应用自己解析（MyGo 只转发 `fileAssociations` 里登记的扩展名），`openPaths` 用 `beginLoading` / `endLoading` 的「正在读取」集合保证同一路径只读一次。
 - 版本只在 `mygo.json`：`main` 里 `app.SetVersion(mygo.App.Version())` 注入，状态栏与关于对话框读 `app.Version`；不要在 Go 代码里再写一份版本号（`go test` / `go run` 下显示 `dev`）。
 - 自动更新用 MyGo 内置链路：`mygo.json` 的 `updates` 提供 Ed25519 公钥与 GitHub 仓库；`main` 调用 `mygo.Use(native.New(updater.Options{Icon: appIconPNG}))`，不要换成 WebView 版插件。菜单项用 `locales.CheckForUpdates()` + `updater.CheckForUpdates()`，不要用 `updater.MenuItem()`：后者在未注册插件的测试里会 panic，文案也不走本项目 catalogs。
-- 发布产物一律沿用 `mygo build` 的默认命名，不重命名：`zpad-<版本>-<arch>.dmg`、`zpad-setup-<版本>-<arch>.exe`、`zpad-<版本>-<target>.tar.gz`、`.delta`、`update-<target>.json`。CI 只额外产生 `zpad-<版本>-windows-amd64-portable.zip`。发布时用 `mygo build -upload`，它会先传安装包与更新包、最后传 manifest，release 必须发布为 latest（`releases/latest/download/` 才能读到）。
+- 发布产物一律沿用 `mygo build` 的默认命名，不重命名：`zpad-<版本>-<arch>.dmg`、`zpad-setup-<版本>-<arch>.exe`、`zpad-<版本>-<target>.tar.gz`、`.delta`、`update-<target>.json`。CI 只额外产生 `zpad-<版本>-windows-amd64-portable.zip`，内容平铺在根目录（解压即得 `ZPad.exe`，不套文件夹），CI 会校验 `ZPad.exe` 在归档根目录。发布时用 `mygo build -upload`，它会先传安装包与更新包、最后传 manifest，release 必须发布为 latest（`releases/latest/download/` 才能读到）。
 - 更新私钥只在 `~/Library/Application Support/mygo/update-keys/mygo-update.key` 和 GitHub secret `MYGO_UPDATER_PRIVATE_KEY`；不要提交、不要打印。私钥丢失后，已安装的用户无法再收到更新。发布构建缺私钥会跳过签名，只适合本地打包。
 - 强制外观用 `mygo.Theme.SetSource`，UI 主题用 `c.SetTheme` / `ui.Themed`。
 - 失败提示分两类：用户动作的一次性结果（打开 / 重新打开 / 对话框失败）用 `SetErrorToast(title, detail)`，走 toast 队列，6 秒自动消失、悬停暂停、Esc 关闭；`SetError` 只用于文档还开着、需要用户处理的保存 / 关闭失败（状态栏红字，下一次成功打开时清零）。不要把一次性结果写进 `errMsg`，否则它会一直留在状态栏。
@@ -168,15 +172,17 @@ website/                   官网（Hugo）：首页、下载页、双语、发�
 - **标签中键关闭（后续增补）**：已实现。在标签上按下鼠标中键立即关闭该标签，不激活它、不移动焦点。MyGo 的 `Clicked` 只认主键，中键既不产生点击也没有 `MiddleClicked`，所以 `tabItem` 用 `HandleInput` 自己接 `InputPointerDown` 的 `Button == 2` 并吞掉这次按压，其它键与左右键原样放行（左键点击 / 拖拽排序 / 右键菜单不变）。关闭仍走 `CloseTab`：未保存照常提示，关掉某栏最后一个标签照常收起分屏，草稿与搜索结果的清理不变。按在标签栏空白处、`+` 号或标签列表按钮上不触发；侧栏「打开的文件」不支持中键；不加额外 tooltip。macOS 触控板默认没有中键，需三键鼠标。未发布。
 - **显示空白字符（后续增补）**：已实现。设置 → 编辑器新增「显示空白字符」下拉，可选仅选区（默认）/ 关闭 / 全部 / 仅行尾，存储在 `Settings.Whitespace`（`selection | none | all | trailing`）。渲染直接用 MyGo 的 `editor.State.Whitespace`：空格画 2px 圆点、Tab 画箭头，颜色走主题的 `editor.Theme.Whitespace`（默认亮暗用 `TextMuted`，命名主题用 muted 45%），不新增主题 token，也不改 `configureEditor` 之外的渲染路径。`configureEditor` 每帧按设置赋值，切换立即生效，无需重开标签；默认「仅选区」与 VS Code / Zed / Sublime 一致，升级后观感不变。未发布。
 - **Vim 模式（后续增补）**：已实现。`Settings.VimMode`（`vimMode`，默认 false）与设置 → 编辑器开关；每个标签一个 `internal/vim.Session`（`Tab.vim`），关闭开关时置空。用 `editor.State.OnInput` 在编辑器前接键：Normal / Visual 关输入法、光标方块（pending 下划线），Insert 恢复输入法、光标竖线；状态栏显示 `NORMAL` / `INSERT` / `VISUAL` / `V-LINE`。支持 `h j k l w b e W B E 0 ^ $ gg G { }`、数量前缀、`i a I A o O`、`x X D C s S J ~`、`d c y` 加移动与文本对象（`iw/aw/i"/a"/i(/a(…`、`ip/ap`）、`yy/Y/p/P`、`u`/`Ctrl+r`、`>>`/`<<`、`%`、`v`/`V` 可视模式；`/` 走内建 FindBar 后关闭，`n`/`N` 用 Session 记录的当前匹配范围避免重复命中；`:w`、`:q`、`:wq`、`:x`、`:行号`。Esc 在编辑器聚焦时由窗口级入口先交给 Vim，命令行为窗口底部浮层；Markdown 预览、设置、搜索、重命名、新建、关于弹窗仍优先。只读标签不改动，编辑全部走 `Buffer.Edit`，不复制整份文本。不含宏、marks、多寄存器、`.` 重复、visual block、`f/t`、`:s` / `:set`，侧栏 / 文件树 / 标签不做全局 hjkl。未发布。
+- **代码片段（后续增补）**：已实现。`internal/snippets` 存 `<用户数据目录>/snippets.json`（`version` + 分组与片段，稳定 `id`，CRLF 归一为 LF，损坏落 `.bak`，原子写），整库上限 100 条、单条正文 8 KB，超限在弹窗里被拦下。工具栏扳手右边的片段按钮与 `⌥⌘S`（Windows / Linux `Ctrl+Alt+S`）打开同一面板，编辑菜单「编辑 → 代码片段」另有插入片段 / 管理片段 / 用当前选区新建。面板与跨文件搜索同一套 `DialogBase` 卡片：搜索框即时过滤分组名、片段名与正文（`foldContains` 逐字节 `EqualFold`，不复制正文），`ui.List` 虚拟化并按分组显示标题行，`↑`/`↓` 跳过标题、`↵` 或点击插入。插入不走 `State.Insert`（粘贴路径可能把文本当整行粘贴放到上一行），而是每个选区从后往前 `Buffer.Edit`、`Transact` 合成一步撤销、光标落在插入文本之后，多行正文复用 `alignToLine` 跟随行缩进；只读、Markdown 预览、Vim 模式下拒绝并给 toast，面板不关。管理视图左侧分组（新建 / 重命名 / 删除，含片段先原生确认）、右侧片段（新建 / 编辑 / 删除，单条删除也确认）。每次打开面板重新读文件，手改的片段能被看到。未发布。
 - **官网**：`website/` 的 Hugo 站点（首页、下载页、更新日志），中英双语、亮暗主题；构建时从 GitHub 最新 release 取版本数据，发布后手动重建 CF；线上 <https://zpad.xphub.dev>。
 - **官网截图（0.5.0）**：已更新。图库 6 张：分屏与设置（含主题下拉）各亮暗一张，Markdown 预览用 GitHub Light、跨文件搜索用 One Dark；首屏 `hero` 默认 GitHub Light，鼠标悬停由 CSS 淡入 One Dark，不再跟随站点亮暗切换。
 
-测试覆盖：编码、行尾、大小写、跨文件搜索的匹配规则与跳转、文件树、文档读写、分屏合并、跨栏共享、脏文档去重、会话往返、缺失文件跳过、滚动恢复、无修改退出保存会话、设置面板渲染、设置下拉光标、字体过滤、中英文案、编辑器 token 颜色、主题注册表与对比度、主题切换持久化、大文件只读、只读目录保存失败、外部重载、文件关联配置、更新公钥与 CHANGELOG 版本小节、更新菜单项、图标尺寸、标签拖拽重排与跨栏按位置插入、文件树自然排序、工作区空白处与文件夹行的新建菜单、侧栏菜单按 tab 裁剪、草稿写入 / 恢复 / 生命周期（保存、变干净、关闭最后一个标签、重命名、切换开关）、未命名文件跨重启恢复、只读跳过、草稿写入节奏、标题栏占位与工具栏留白、Windows 菜单条布局 / 焦点 / 分屏高度 / 顶层菜单过滤、未命名文档的语言选择与高亮、语言列表只含可保存的扩展名、已保存文件的语言只读、保存名与补后缀、会话 / 草稿里的语言往返、未命名 Markdown 的预览与语言切换收口、文本工具的 Base64 / MD5 / JSON、选区上限、只读跳过与菜单置灰、标签中键关闭（含另一栏）与左键仍能激活、空白字符档位映射与设置下拉、Vim 模式默认关闭 / 模式安装 / 插入与 Esc / 可视删除 / `/` 与 `n` / `:行号` / 开关切换 / 只读 / 输入法切换，以及 `internal/vim` 的移动、数量、操作符、文本对象、粘贴、缩进与行尾。
+测试覆盖：编码、行尾、大小写、跨文件搜索的匹配规则与跳转、文件树、文档读写、分屏合并、跨栏共享、脏文档去重、会话往返、缺失文件跳过、滚动恢复、无修改退出保存会话、设置面板渲染、设置下拉光标、字体过滤、中英文案、编辑器 token 颜色、主题注册表与对比度、主题切换持久化、大文件只读、只读目录保存失败、外部重载、文件关联配置、更新公钥与 CHANGELOG 版本小节、更新菜单项、图标尺寸、标签拖拽重排与跨栏按位置插入、文件树自然排序、工作区空白处与文件夹行的新建菜单、侧栏菜单按 tab 裁剪、草稿写入 / 恢复 / 生命周期（保存、变干净、关闭最后一个标签、重命名、切换开关）、未命名文件跨重启恢复、只读跳过、草稿写入节奏、标题栏占位与工具栏留白、Windows 菜单条布局 / 焦点 / 分屏高度 / 顶层菜单过滤、未命名文档的语言选择与高亮、语言列表只含可保存的扩展名、已保存文件的语言只读、保存名与补后缀、会话 / 草稿里的语言往返、未命名 Markdown 的预览与语言切换收口、文本工具的 Base64 / MD5 / JSON、选区上限、只读跳过与菜单置灰、标签中键关闭（含另一栏）与左键仍能激活、空白字符档位映射与设置下拉、Vim 模式默认关闭 / 模式安装 / 插入与 Esc / 可视删除 / `/` 与 `n` / `:行号` / 开关切换 / 只读 / 输入法切换、`internal/vim` 的移动、数量、操作符、文本对象、粘贴、缩进与行尾、代码片段的存储往返与修复 / 空名与重名 / 100 条与 8 KB 上限 / 光标与多光标插入 / 缩进对齐 / 一步撤销 / 只读与预览与 Vim 拒绝 / 过滤与选择跳过标题 / 弹窗增删改 / 从选区新建 / 管理视图渲染与新建分组，以及 `internal/snippets` 的原子读写。
 
 ## 已知限制 / 后续
 
 - 超过设置阈值（默认 20 MB）或 50 万行的文件以只读方式打开。
 - 文本工具按编辑器内部的 LF 计算多行文本的 MD5 / Base64，与磁盘上 CRLF 文件的字节不同；JSON 只接受严格 JSON（注释、尾逗号会报错），不支持排序 / 去重 / 自定义缩进；系统菜单栏没有「工具」入口。
+- 代码片段上限固定（100 条 / 单条正文 8 KB），没有设置项，也不做导入导出与 VS Code `.code-snippets` 兼容；占位符（`$1` / `${1:name}`）按字面插入；分组与片段只能追加到末尾，没有拖动排序；每次打开面板都重读文件，但在 ZPad 里改了未保存的 `snippets.json` 时，面板里的下一次写入会覆盖手改内容。
 - 空载物理占用约 60–75 MB：其中约 28 MB 是 MyGo 的一个全尺寸 Metal drawable；聚焦编辑时 MyGo 保留 3 个（1920×995 屏幕约 85 MB）并伴随数十 MB Metal 缓存，应用层无法控制，需上游支持。
 - 文件树删除为永久删除，未接入废纸篓；重命名使用模态框，未做 Finder 式行内编辑。
 - 设置修改立即写盘，未做防抖。

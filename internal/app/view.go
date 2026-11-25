@@ -43,12 +43,16 @@ func (a *App) View(c *ui.Context) {
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyB) && !c.ShortcutRepeated() {
 			a.OpenActiveInBrowser()
 		}
+		if c.Shortcut(ui.Cmd|ui.Alt, ui.KeyS) && !c.ShortcutRepeated() {
+			a.openSnippets()
+		}
 		// Escape leaves a Markdown preview wherever the focus is: the
 		// preview keeps a scroll state rather than a cursor, so there is
 		// nothing else for it to cancel. Dialogs, menus and toasts over
 		// the window take the key first, as overlays. A Vim editor takes
 		// Escape itself, as it leaves insert or visual mode.
-		if !a.searchOpen && !a.vimCmdOpen && c.Shortcut(0, ui.KeyEscape) && !c.ShortcutRepeated() {
+		if !a.searchOpen && !a.vimCmdOpen && !a.snippetsOpen && !a.snippetEditOpen &&
+			!a.groupEditOpen && c.Shortcut(0, ui.KeyEscape) && !c.ShortcutRepeated() {
 			tab := a.activeTab()
 			switch {
 			case a.Settings.VimMode && tab != nil && tab.vim != nil && !tab.preview && tab.state.Focused():
@@ -86,6 +90,9 @@ func (a *App) View(c *ui.Context) {
 				a.renameModal(c, t)
 				a.createModal(c, t)
 				a.searchModal(c, t)
+				a.snippetsModal(c, t)
+				a.snippetEditModal(c, t)
+				a.groupEditModal(c, t)
 			}
 		}
 		a.vimCommandModal(c, t)
@@ -124,6 +131,8 @@ func (a *App) toolbar(c *ui.Context, t *ui.Theme) {
 			}
 		}).KeyShortcuts(ui.Cmd, ui.KeyF)
 		a.toolButton(c, t)
+		a.iconButton(c, t, iconSnippets, locales.Snippets(), a.snippetsOpen, a.openSnippets).
+			KeyShortcuts(ui.Cmd|ui.Alt, ui.KeyS)
 		a.iconButton(c, t, iconInfo, locales.AboutApp(), a.aboutOpen, a.openAbout)
 		ui.Spacer(c)
 		a.iconButton(c, t, iconUpdate, locales.CheckForUpdates(), false, a.checkUpdates)

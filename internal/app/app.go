@@ -16,6 +16,7 @@ import (
 	"github.com/helloxz/zpad/internal/draft"
 	"github.com/helloxz/zpad/internal/files"
 	"github.com/helloxz/zpad/internal/settings"
+	"github.com/helloxz/zpad/internal/snippets"
 	"github.com/helloxz/zpad/internal/theme"
 	"github.com/helloxz/zpad/internal/vim"
 	"github.com/helloxz/zpad/locales"
@@ -219,6 +220,34 @@ type App struct {
 	// button) before the panel can jump to a result.
 	searchRanFor     string
 	searchRanOptions searchOptions
+
+	// The user's code snippets: the store read when the panel opens, the
+	// panel's query, rows and choice, and the management view's group. The
+	// editor dialog edits a snippet, the group dialog a group's name;
+	// both sit over the panel, which is not drawn then.
+	snippets       *snippets.Store
+	snippetsOpen   bool
+	snippetsManage bool
+	snippetsFocus  bool
+	snippetsQuery  string
+	snippetsRows   []snippetRow
+	snippetsSel    int
+	snippetsList   ui.ListState
+	snippetsGroup  int
+
+	snippetEditOpen    bool
+	snippetEditGroupID string
+	snippetEditID      string
+	snippetEditName    string
+	snippetEditBody    string
+	snippetEditErr     string
+	snippetEditFocus   bool
+
+	groupEditOpen  bool
+	groupEditID    string
+	groupEditName  string
+	groupEditErr   string
+	groupEditFocus bool
 
 	// vimCmdOpen is the : or / command line at the bottom of the window,
 	// which vimCmdKind says is which and vimCmdValue holds; vimCmdFocus
