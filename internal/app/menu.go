@@ -65,12 +65,11 @@ func (a *App) menuItems() []*mygo.MenuItem {
 			{Label: locales.SplitTopBottom(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSplit(true) }},
 		}},
 		{Label: locales.Refresh(), Click: func(*mygo.MenuItem, *mygo.Window) { a.refreshTree() }},
-		{Label: locales.FindEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) {
-			if tab := a.activeTab(); tab != nil && !tab.preview {
-				tab.state.Run(editor.Find)
-			}
-		}},
+		{Label: locales.FindEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) { a.findActive() }},
 		{Label: locales.ReplaceEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) {
+			if a.diffOpen {
+				return
+			}
 			if tab := a.activeTab(); tab != nil && !tab.preview {
 				tab.state.Run(editor.FindReplace)
 			}

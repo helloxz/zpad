@@ -346,5 +346,80 @@
   "snippetOtherGroups": "其它分组还有 {count} 条",
   "snippetShowAll": "查看全部",
   "snippetsLoadFailed": "读取片段失败",
-  "snippetsSaveFailed": "保存片段失败"
+  "snippetsSaveFailed": "保存片段失败",
+  "compareText": "文本对比",
+  "compareBaseHint": "A 是基准，B 是对比文本",
+  "compareNeedTwoTabs": "至少打开两个标签才能对比",
+  "compareSameTab": "A 和 B 选了同一个标签",
+  "compareEmptySide": "「{name}」还没有内容，先写点内容再对比",
+  "@compareEmptySide": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "未命名 1"
+      }
+    }
+  },
+  "compareTooLarge": "「{name}」超过 {limit}，暂不支持对比",
+  "@compareTooLarge": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "notes.txt"
+      },
+      "limit": {
+        "type": "String",
+        "example": "1 MB / 2 万行"
+      }
+    }
+  },
+  "compareLimit": "1 MB / 2 万行",
+  "compareReady": "选择两个标签，然后点对比",
+  "compareRun": "对比",
+  "compareAgain": "重新对比",
+  "compareSwap": "交换 A 和 B",
+  "compareSelectTab": "选择标签",
+  "compareIdentical": "两侧内容完全一致（共 {count} 行）",
+  "@compareIdentical": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "compareComparing": "正在对比…",
+  "compareStats": "+{added} −{removed}",
+  "@compareStats": {
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "example": "12"
+      },
+      "removed": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "compareHunks": "{count} 处差异",
+  "@compareHunks": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "comparePreviousHunk": "上一处差异",
+  "compareNextHunk": "下一处差异",
+  "compareFooter": "Esc 关闭 · 仅比较已打开的标签 · 上限 {limit}",
+  "@compareFooter": {
+    "placeholders": {
+      "limit": {
+        "type": "String",
+        "example": "1 MB / 2 万行"
+      }
+    }
+  }
 }

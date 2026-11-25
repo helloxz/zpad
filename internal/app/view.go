@@ -33,7 +33,7 @@ func (a *App) View(c *ui.Context) {
 	t := a.themeDefinition().UI
 	c.SetTheme(t)
 	c.SetMenuPresentation(ui.PopoverMenus)
-	if !a.showSettings && !a.aboutOpen && !a.renameOpen && !a.createOpen {
+	if !a.showSettings && !a.aboutOpen && !a.renameOpen && !a.createOpen && !a.diffOpen {
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF) && !c.ShortcutRepeated() {
 			a.openSearchPanel()
 		}
@@ -93,6 +93,7 @@ func (a *App) View(c *ui.Context) {
 				a.snippetsModal(c, t)
 				a.snippetEditModal(c, t)
 				a.groupEditModal(c, t)
+				a.diffModal(c, t)
 			}
 		}
 		a.vimCommandModal(c, t)
@@ -125,11 +126,8 @@ func (a *App) toolbar(c *ui.Context, t *ui.Theme) {
 			KeyShortcuts(ui.Cmd, ui.KeyZ)
 		a.iconButton(c, t, iconRedo, locales.Redo(), false, a.Redo).
 			KeyShortcuts(ui.Cmd|ui.Shift, ui.KeyZ)
-		a.iconButton(c, t, iconSearch, locales.Find(), false, func() {
-			if tab := a.activeTab(); tab != nil && !tab.preview {
-				tab.state.Run(editor.Find)
-			}
-		}).KeyShortcuts(ui.Cmd, ui.KeyF)
+		a.iconButton(c, t, iconSearch, locales.Find(), false, a.findActive).
+			KeyShortcuts(ui.Cmd, ui.KeyF)
 		a.toolButton(c, t)
 		a.iconButton(c, t, iconSnippets, locales.Snippets(), a.snippetsOpen, a.openSnippets).
 			KeyShortcuts(ui.Cmd|ui.Alt, ui.KeyS)
@@ -162,7 +160,7 @@ func (a *App) toolButton(c *ui.Context, t *ui.Theme) {
 		ui.Icon(c, iconTools).FontSize(16).TextColor(t.Text)
 	})
 	b.PopoverMenuButton(func(m *ui.Menu) {
-		a.toolMenu(m, a.activeTab())
+		a.compareToolMenu(m, a.activeTab())
 	}, menuButtonCursorOptions())
 }
 

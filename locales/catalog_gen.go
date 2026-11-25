@@ -3279,3 +3279,197 @@ func SnippetsSaveFailed() string { return In(i18n.Locale()).SnippetsSaveFailed()
 func (msgs Messages) SnippetsSaveFailed() string {
 	return Catalog.Format(msgs.locale, "snippetsSaveFailed", nil)
 }
+
+// CompareText says "Compare Text"
+// in the language the app shows.
+func CompareText() string { return In(i18n.Locale()).CompareText() }
+
+// CompareText says "Compare Text"
+// in the language of msgs.
+func (msgs Messages) CompareText() string {
+	return Catalog.Format(msgs.locale, "compareText", nil)
+}
+
+// CompareBaseHint says "A is the base, B is the new text"
+// in the language the app shows.
+func CompareBaseHint() string { return In(i18n.Locale()).CompareBaseHint() }
+
+// CompareBaseHint says "A is the base, B is the new text"
+// in the language of msgs.
+func (msgs Messages) CompareBaseHint() string {
+	return Catalog.Format(msgs.locale, "compareBaseHint", nil)
+}
+
+// CompareNeedTwoTabs says "Open at least two tabs to compare."
+// in the language the app shows.
+func CompareNeedTwoTabs() string { return In(i18n.Locale()).CompareNeedTwoTabs() }
+
+// CompareNeedTwoTabs says "Open at least two tabs to compare."
+// in the language of msgs.
+func (msgs Messages) CompareNeedTwoTabs() string {
+	return Catalog.Format(msgs.locale, "compareNeedTwoTabs", nil)
+}
+
+// CompareSameTab says "A and B are the same tab."
+// in the language the app shows.
+func CompareSameTab() string { return In(i18n.Locale()).CompareSameTab() }
+
+// CompareSameTab says "A and B are the same tab."
+// in the language of msgs.
+func (msgs Messages) CompareSameTab() string {
+	return Catalog.Format(msgs.locale, "compareSameTab", nil)
+}
+
+// CompareEmptySide says "“{name}” has no content yet."
+// in the language the app shows.
+func CompareEmptySide(name string) string { return In(i18n.Locale()).CompareEmptySide(name) }
+
+// CompareEmptySide says "“{name}” has no content yet."
+// in the language of msgs.
+func (msgs Messages) CompareEmptySide(name string) string {
+	return Catalog.Format(msgs.locale, "compareEmptySide", map[string]any{"name": name})
+}
+
+// CompareTooLarge says "“{name}” is over {limit}, so it can’t be compared."
+// in the language the app shows.
+func CompareTooLarge(name string, limit string) string {
+	return In(i18n.Locale()).CompareTooLarge(name, limit)
+}
+
+// CompareTooLarge says "“{name}” is over {limit}, so it can’t be compared."
+// in the language of msgs.
+func (msgs Messages) CompareTooLarge(name string, limit string) string {
+	return Catalog.Format(msgs.locale, "compareTooLarge", map[string]any{"name": name, "limit": limit})
+}
+
+// CompareLimit says "1 MB / 20,000 lines"
+// in the language the app shows.
+func CompareLimit() string { return In(i18n.Locale()).CompareLimit() }
+
+// CompareLimit says "1 MB / 20,000 lines"
+// in the language of msgs.
+func (msgs Messages) CompareLimit() string {
+	return Catalog.Format(msgs.locale, "compareLimit", nil)
+}
+
+// CompareReady says "Choose two tabs, then Compare."
+// in the language the app shows.
+func CompareReady() string { return In(i18n.Locale()).CompareReady() }
+
+// CompareReady says "Choose two tabs, then Compare."
+// in the language of msgs.
+func (msgs Messages) CompareReady() string {
+	return Catalog.Format(msgs.locale, "compareReady", nil)
+}
+
+// CompareRun says "Compare"
+// in the language the app shows.
+func CompareRun() string { return In(i18n.Locale()).CompareRun() }
+
+// CompareRun says "Compare"
+// in the language of msgs.
+func (msgs Messages) CompareRun() string {
+	return Catalog.Format(msgs.locale, "compareRun", nil)
+}
+
+// CompareAgain says "Compare Again"
+// in the language the app shows.
+func CompareAgain() string { return In(i18n.Locale()).CompareAgain() }
+
+// CompareAgain says "Compare Again"
+// in the language of msgs.
+func (msgs Messages) CompareAgain() string {
+	return Catalog.Format(msgs.locale, "compareAgain", nil)
+}
+
+// CompareSwap says "Swap A and B"
+// in the language the app shows.
+func CompareSwap() string { return In(i18n.Locale()).CompareSwap() }
+
+// CompareSwap says "Swap A and B"
+// in the language of msgs.
+func (msgs Messages) CompareSwap() string {
+	return Catalog.Format(msgs.locale, "compareSwap", nil)
+}
+
+// CompareSelectTab says "Choose a tab"
+// in the language the app shows.
+func CompareSelectTab() string { return In(i18n.Locale()).CompareSelectTab() }
+
+// CompareSelectTab says "Choose a tab"
+// in the language of msgs.
+func (msgs Messages) CompareSelectTab() string {
+	return Catalog.Format(msgs.locale, "compareSelectTab", nil)
+}
+
+// CompareIdentical says "Both sides are identical ({count, plural, one {# line} other {# lines}})."
+// in the language the app shows.
+func CompareIdentical(count int) string { return In(i18n.Locale()).CompareIdentical(count) }
+
+// CompareIdentical says "Both sides are identical ({count, plural, one {# line} other {# lines}})."
+// in the language of msgs.
+func (msgs Messages) CompareIdentical(count int) string {
+	return Catalog.Format(msgs.locale, "compareIdentical", map[string]any{"count": count})
+}
+
+// CompareComparing says "Comparing…"
+// in the language the app shows.
+func CompareComparing() string { return In(i18n.Locale()).CompareComparing() }
+
+// CompareComparing says "Comparing…"
+// in the language of msgs.
+func (msgs Messages) CompareComparing() string {
+	return Catalog.Format(msgs.locale, "compareComparing", nil)
+}
+
+// CompareStats says "+{added} −{removed}"
+// in the language the app shows.
+func CompareStats(added int, removed int) string {
+	return In(i18n.Locale()).CompareStats(added, removed)
+}
+
+// CompareStats says "+{added} −{removed}"
+// in the language of msgs.
+func (msgs Messages) CompareStats(added int, removed int) string {
+	return Catalog.Format(msgs.locale, "compareStats", map[string]any{"added": added, "removed": removed})
+}
+
+// CompareHunks says "{count, plural, one {# change} other {# changes}}"
+// in the language the app shows.
+func CompareHunks(count int) string { return In(i18n.Locale()).CompareHunks(count) }
+
+// CompareHunks says "{count, plural, one {# change} other {# changes}}"
+// in the language of msgs.
+func (msgs Messages) CompareHunks(count int) string {
+	return Catalog.Format(msgs.locale, "compareHunks", map[string]any{"count": count})
+}
+
+// ComparePreviousHunk says "Previous change"
+// in the language the app shows.
+func ComparePreviousHunk() string { return In(i18n.Locale()).ComparePreviousHunk() }
+
+// ComparePreviousHunk says "Previous change"
+// in the language of msgs.
+func (msgs Messages) ComparePreviousHunk() string {
+	return Catalog.Format(msgs.locale, "comparePreviousHunk", nil)
+}
+
+// CompareNextHunk says "Next change"
+// in the language the app shows.
+func CompareNextHunk() string { return In(i18n.Locale()).CompareNextHunk() }
+
+// CompareNextHunk says "Next change"
+// in the language of msgs.
+func (msgs Messages) CompareNextHunk() string {
+	return Catalog.Format(msgs.locale, "compareNextHunk", nil)
+}
+
+// CompareFooter says "Esc to close · Open tabs only · Limit {limit}"
+// in the language the app shows.
+func CompareFooter(limit string) string { return In(i18n.Locale()).CompareFooter(limit) }
+
+// CompareFooter says "Esc to close · Open tabs only · Limit {limit}"
+// in the language of msgs.
+func (msgs Messages) CompareFooter(limit string) string {
+	return Catalog.Format(msgs.locale, "compareFooter", map[string]any{"limit": limit})
+}

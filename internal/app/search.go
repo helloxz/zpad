@@ -345,7 +345,7 @@ func splitPreview(h searchHit) (string, string, string) {
 // user asks, with Enter or the search button.
 func (a *App) openSearchPanel() {
 	if a.showSettings || a.aboutOpen || a.renameOpen || a.snippetsOpen ||
-		a.snippetEditOpen || a.groupEditOpen {
+		a.snippetEditOpen || a.groupEditOpen || a.diffOpen {
 		return
 	}
 	a.searchOpen = true

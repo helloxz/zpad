@@ -251,6 +251,15 @@ type App struct {
 	groupEditErr   string
 	groupEditFocus bool
 
+	// The text comparison panel: the two documents chosen, the diff of
+	// their snapshots, and whether both sides hold the same text, which
+	// needs no viewer.
+	diffOpen      bool
+	diffA, diffB  *Document
+	diff          *editor.DiffState
+	diffIdentical bool
+	diffFocus     bool
+
 	// vimCmdOpen is the : or / command line at the bottom of the window,
 	// which vimCmdKind says is which and vimCmdValue holds; vimCmdFocus
 	// gives its field the keyboard once.
@@ -598,6 +607,7 @@ func (a *App) removeTab(paneIdx, i int) {
 		a.focusEditor = true
 	}
 	a.pruneSearchDocument(doc)
+	a.diffDocumentClosed(doc)
 	a.dropPreviewOptions(doc)
 	if a.findTab(doc) == nil {
 		// The last tab of the document: its recovery copy goes with it.

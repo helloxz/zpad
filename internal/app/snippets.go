@@ -61,7 +61,7 @@ func (a *App) showSnippets() bool {
 // that a second panel does not stack on it.
 func (a *App) panelOpen() bool {
 	return a.showSettings || a.aboutOpen || a.renameOpen || a.createOpen ||
-		a.searchOpen || a.snippetEditOpen || a.groupEditOpen
+		a.searchOpen || a.snippetEditOpen || a.groupEditOpen || a.diffOpen
 }
 
 // closeSnippets hides the panel and forgets the query. The rows go with

@@ -569,5 +569,80 @@
   },
   "snippetShowAll": "Show All",
   "snippetsLoadFailed": "Could not read the snippets",
-  "snippetsSaveFailed": "Could not save the snippets"
+  "snippetsSaveFailed": "Could not save the snippets",
+  "compareText": "Compare Text",
+  "compareBaseHint": "A is the base, B is the new text",
+  "compareNeedTwoTabs": "Open at least two tabs to compare.",
+  "compareSameTab": "A and B are the same tab.",
+  "compareEmptySide": "“{name}” has no content yet.",
+  "@compareEmptySide": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "untitled-1"
+      }
+    }
+  },
+  "compareTooLarge": "“{name}” is over {limit}, so it can’t be compared.",
+  "@compareTooLarge": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "notes.txt"
+      },
+      "limit": {
+        "type": "String",
+        "example": "1 MB / 20,000 lines"
+      }
+    }
+  },
+  "compareLimit": "1 MB / 20,000 lines",
+  "compareReady": "Choose two tabs, then Compare.",
+  "compareRun": "Compare",
+  "compareAgain": "Compare Again",
+  "compareSwap": "Swap A and B",
+  "compareSelectTab": "Choose a tab",
+  "compareIdentical": "Both sides are identical ({count, plural, one {# line} other {# lines}}).",
+  "@compareIdentical": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "compareComparing": "Comparing…",
+  "compareStats": "+{added} −{removed}",
+  "@compareStats": {
+    "placeholders": {
+      "added": {
+        "type": "int",
+        "example": "12"
+      },
+      "removed": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "compareHunks": "{count, plural, one {# change} other {# changes}}",
+  "@compareHunks": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "comparePreviousHunk": "Previous change",
+  "compareNextHunk": "Next change",
+  "compareFooter": "Esc to close · Open tabs only · Limit {limit}",
+  "@compareFooter": {
+    "placeholders": {
+      "limit": {
+        "type": "String",
+        "example": "1 MB / 20,000 lines"
+      }
+    }
+  }
 }

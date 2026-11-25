@@ -212,9 +212,12 @@ func textToolErrorTitle(err error) string {
 	return locales.TextToolFailed()
 }
 
-// toolMenu fills m with the text tools, disabled where tab cannot run
-// them. Case conversion is not here: the editor's own context menu has a
-// richer Transform submenu, and the app menu keeps Convert Case.
+// toolMenu fills m with the tools that work on the selected text, disabled
+// where tab cannot run them. It is the editor's own 工具 submenu too, so it
+// holds nothing that acts on the window: the text comparison is added by
+// compareToolMenu for the toolbar alone. Case conversion is not here: the
+// editor's own context menu has a richer Transform submenu, and the app
+// menu keeps Convert Case.
 func (a *App) toolMenu(m *ui.Menu, tab *Tab) {
 	editable := tab != nil && !tab.doc.ReadOnly && !tab.preview
 	selected := 0
@@ -271,4 +274,16 @@ func (a *App) toolMenu(m *ui.Menu, tab *Tab) {
 			a.runLineNumbers(tab, ": ")
 		}
 	}).Disabled(!editable)
+}
+
+// compareToolMenu is the toolbar's tools menu: the window-level text
+// comparison first, a rule, then the text tools. The editor's own 工具
+// submenu stays on toolMenu alone, since a dialog about two tabs is not a
+// selection tool.
+func (a *App) compareToolMenu(m *ui.Menu, tab *Tab) {
+	if m.Item(locales.CompareText()).Chosen() {
+		a.openCompareText(tab)
+	}
+	m.Separator()
+	a.toolMenu(m, tab)
 }
