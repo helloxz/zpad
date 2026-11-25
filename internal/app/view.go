@@ -272,6 +272,13 @@ func (a *App) sidebarMenuButton(c *ui.Context, t *ui.Theme) {
 				a.toggleHidden()
 			}
 			m.Separator()
+			// The workspace has a close of its own: without it the only
+			// way back is another folder or closing the whole sidebar.
+			if a.root != "" {
+				if m.Item(locales.CloseWorkspace()).Chosen() {
+					a.closeWorkspace()
+				}
+			}
 		}
 		if m.Item(locales.CloseSidebar()).Chosen() {
 			a.toggleSidebar()

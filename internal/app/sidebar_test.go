@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/helloxz/zpad/internal/session"
 	"github.com/helloxz/zpad/internal/settings"
 	"github.com/helloxz/zpad/locales"
 )
@@ -357,8 +358,68 @@ func TestSidebarMenuByTab(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	want := []string{locales.Refresh(), locales.ShowHidden(), "-", locales.CloseSidebar()}
+	want := []string{locales.Refresh(), locales.ShowHidden(), "-", locales.CloseWorkspace(), locales.CloseSidebar()}
 	if menu := tt.Menu(); !slices.Equal(menu, want) {
 		t.Fatalf("workspace menu %q, want %q", menu, want)
+	}
+}
+
+// TestCloseWorkspaceMenu drops the folder alone: the documents stay open,
+// the sidebar stays out, and the next launch starts without a workspace.
+func TestCloseWorkspaceMenu(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(file, []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := New(settings.Default(), t.TempDir())
+	a.setWorkspace(dir)
+	a.addDocument(docAt(file, "a"))
+
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+	if err := tt.Click(locales.SidebarMenu()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.ChooseMenuItem(locales.CloseWorkspace()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+
+	if a.root != "" || a.tree != nil {
+		t.Fatalf("workspace %q, tree %v; want none", a.root, a.tree)
+	}
+	if a.sidebarTab != sidebarFiles {
+		t.Fatalf("sidebar tab %d, want the open files tab", a.sidebarTab)
+	}
+	if !a.Settings.SidebarOpen {
+		t.Fatal("closing the workspace closed the sidebar")
+	}
+	if len(a.left.tabs) != 1 || a.left.tabs[0].doc.Path != file {
+		t.Fatalf("tabs %v, want %q kept", a.left.tabs, file)
+	}
+	st, err := session.Load(a.SettingsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Root != "" {
+		t.Fatalf("session root %q, want none", st.Root)
+	}
+	if !tt.HasText("a.txt") {
+		t.Fatalf("the open files tab does not list the tab; texts %q", tt.Texts())
+	}
+
+	// Without a workspace the menu offers nothing tree-specific but the
+	// hidden files switch.
+	a.sidebarTab = sidebarWorkspace
+	tt.Frame()
+	if err := tt.Click(locales.SidebarMenu()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	want := []string{locales.Refresh(), locales.ShowHidden(), "-", locales.CloseSidebar()}
+	if menu := tt.Menu(); !slices.Equal(menu, want) {
+		t.Fatalf("menu without a workspace %q, want %q", menu, want)
 	}
 }

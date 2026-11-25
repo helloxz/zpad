@@ -927,6 +927,22 @@ func (a *App) setWorkspace(root string) {
 	a.update()
 }
 
+// closeWorkspace forgets the folder the workspace tab shows. The open
+// documents stay: they are tabs of their own, and the sidebar, still open,
+// goes back to the files it shares.
+func (a *App) closeWorkspace() {
+	a.root = ""
+	a.tree = nil
+	a.treeSelected = -1
+	a.treeState = ui.OutlineState[string]{}
+	a.treeGeneration++
+	if a.sidebarTab == sidebarWorkspace {
+		a.sidebarTab = sidebarFiles
+	}
+	a.saveSession()
+	a.update()
+}
+
 func (a *App) toggleSidebar() {
 	a.Settings.SidebarOpen = !a.Settings.SidebarOpen
 	a.saveSettings()

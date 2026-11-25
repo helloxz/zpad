@@ -2574,6 +2574,16 @@ func (msgs Messages) ShowHidden() string {
 	return Catalog.Format(msgs.locale, "showHidden", nil)
 }
 
+// CloseWorkspace says "Close Workspace"
+// in the language the app shows.
+func CloseWorkspace() string { return In(i18n.Locale()).CloseWorkspace() }
+
+// CloseWorkspace says "Close Workspace"
+// in the language of msgs.
+func (msgs Messages) CloseWorkspace() string {
+	return Catalog.Format(msgs.locale, "closeWorkspace", nil)
+}
+
 // CloseSidebar says "Close Sidebar"
 // in the language the app shows.
 func CloseSidebar() string { return In(i18n.Locale()).CloseSidebar() }

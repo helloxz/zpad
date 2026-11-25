@@ -277,6 +277,7 @@
   "fontLoadFallback": "字体加载失败，已回退到系统等宽字体。",
   "refresh": "刷新",
   "showHidden": "显示隐藏文件",
+  "closeWorkspace": "关闭工作区",
   "closeSidebar": "关闭侧栏",
   "sidebarMenu": "侧栏菜单",
   "reopenWithEncoding": "重新以…编码打开",

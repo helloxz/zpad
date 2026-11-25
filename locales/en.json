@@ -436,6 +436,7 @@
   "fontLoadFallback": "Could not load the bundled font; using the system monospace font.",
   "refresh": "Refresh",
   "showHidden": "Show Hidden Files",
+  "closeWorkspace": "Close Workspace",
   "closeSidebar": "Close Sidebar",
   "sidebarMenu": "Sidebar Menu",
   "reopenWithEncoding": "Reopen with Encoding",
