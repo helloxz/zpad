@@ -34,8 +34,8 @@ features:
     title: "关掉也不丢"
     text: "未保存的内容自动暂存，崩溃或重启后标签和正文原样回来。"
   - icon: tools
-    title: "右键小工具"
-    text: "Base64、MD5、JSON 格式化与压缩，选中就能用，不离开编辑器。"
+    title: "内置文本工具"
+    text: "文本对比、Base64、MD5、JSON 格式化与压缩、大小写转换..."
   - icon: terminal
     title: "Vim 模式（默认关闭）"
     text: "设置里打开后，移动、选中、删除和保存都能用 Vim 按键完成。"

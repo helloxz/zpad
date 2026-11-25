@@ -34,8 +34,8 @@ features:
     title: "Nothing lost on quit"
     text: "Unsaved tabs and text are kept, and come back after a crash or restart."
   - icon: tools
-    title: "Tools in the menu"
-    text: "Base64, MD5, JSON format and minify — on the selection, without leaving the editor."
+    title: "Built-in text tools"
+    text: "Text diff, Base64, MD5, JSON format and minify, case conversion..."
   - icon: terminal
     title: "Vim mode (off by default)"
     text: "Turn it on in settings to move, select, delete and save with Vim keys."
