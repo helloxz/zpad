@@ -12,8 +12,8 @@
       {{- with partialCached "release.html" . "latest" }}
       <a class="hide-sm" href="{{ site.Home.RelPermalink }}#changelog">{{ i18n "nav_changelog" }}</a>
       {{- end }}
-      <a href="{{ site.Params.issues }}" rel="noopener">{{ i18n "nav_feedback" }}</a>
-      <a href="{{ site.Params.github }}" rel="noopener">
+      <a href="{{ site.Params.issues }}" rel="nofollow noopener">{{ i18n "nav_feedback" }}</a>
+      <a href="{{ site.Params.github }}" rel="nofollow noopener">
         {{ partial "icon.html" "github" }}
         <span class="hide-sm">GitHub</span>
       </a>

@@ -9,7 +9,7 @@ ZPad 的产品官网：首屏、功能、截图、常见问题、下载。源码
 
 ## 范围
 
-首页六段：首屏（截图 + 下载 / GitHub 按钮）、六个功能点、与 Notepad++ / Sublime Text 的对比表、六张截图（两列，点击放大）、常见问题、最近更新。导航是 功能 / 对比 / 下载 / 更新 / 反馈 / GitHub（窄屏只留 下载 / 更新 / 反馈 / GitHub），反馈直接进 GitHub 新建 issue。下载页按平台列安装包，macOS / Windows / Linux 各两个按钮。不做的：博客、文档站、评论区、账号体系。
+首页六段：首屏（截图 + 下载 / GitHub 按钮）、六个功能点、与 Notepad++ / Sublime Text 的对比表、六张截图（两列，点击放大）、常见问题、最近更新。导航是 功能 / 对比 / 下载 / 更新 / 反馈 / GitHub（窄屏只留 下载 / 更新 / 反馈 / GitHub），反馈直接进 GitHub 新建 issue；反馈与 GitHub 两个外链带 `rel="nofollow noopener"`，不外链权重。下载页按平台列安装包，macOS / Windows / Linux 各两个按钮。页脚只有两行内容：左侧 `© <年份> ZPad. All rights reserved.`（年份取构建时间），右侧隐私政策链接；不再放许可、源码、构建来源。另有 `/privacy/`（英文 `/en/privacy/`）隐私政策，只在页脚右侧链接。不做的：博客、文档站、评论区、账号体系。
 
 `docs/` 下的开发文档不对外，官网只链到 GitHub。
 
@@ -33,13 +33,15 @@ website/
 ├── hugo.toml                  # 站点、语言、输出设置
 ├── content/
 │   ├── _index.md|.en.md       # 首页文案：功能点、截图说明、FAQ
-│   └── download.md|.en.md     # 下载页文案与安装说明
+│   ├── download.md|.en.md     # 下载页文案与安装说明
+│   └── privacy.md|.en.md      # 隐私政策，front matter 带 updated
 ├── i18n/{zh,en}.toml          # 模板里复用的 UI 字符串
 ├── layouts/
 │   ├── baseof.html            # 含截图灯箱 <dialog>
 │   ├── index.html             # 首页
 │   ├── index.redirects        # 由版本数据生成 _redirects
 │   ├── _default/download.html # 下载页（layout: download）
+│   ├── _default/single.html   # 普通正文页（隐私政策）
 │   ├── robots.txt
 │   └── partials/{head,header,footer,icon,shot,release,release-assets}.html
 ├── assets/
@@ -149,16 +151,20 @@ GitHub API 匿名限额是每 IP 每小时 60 次，每次构建只请求一次�
 
 `website/public` 不进 Git，CF 自己构建。
 
-## Web Analytics
+## 访问统计
 
-Pages 项目 → Metrics → Web Analytics → 开启，拿到 token 后填到 `website/hugo.toml`：
+官网用第三方访问统计脚本（`tj.rss.ink`）。脚本标签写在 `website/hugo.toml`：
 
 ```toml
 [params]
-  cfAnalyticsToken = "<token>"
+  analyticsScript = '<script defer src="https://tj.rss.ink/custom.js" data-website-id="<id>"></script>'
 ```
 
-`head.html` 只在 token 非空时渲染 beacon，没填就没有任何统计脚本。无 cookie，不需要同意弹窗。FAQ 里「有统计或追踪吗」的回答要与此保持一致：应用零统计，官网只有这份无 cookie 的聚合访问量。
+`head.html` 在 `analyticsScript` 非空时把它原样输出到 `<head>` 末尾，留空则页面没有任何统计脚本。FAQ 里「有统计或追踪吗」的回答要与此保持一致：应用零统计，官网只有页面浏览量的基础访问统计，不收集个人数据。
+
+## 隐私政策
+
+`/privacy/` 与 `/en/privacy/` 由 `content/privacy.md|.en.md` + `layouts/_default/single.html` 生成，标题是「隐私政策 / Privacy Policy」（写「协议」会像要用户签署，而这页只是告知）。正文十段：本政策说明什么、应用、官网访问日志、访问统计、本地存储、第三方链接、数据共享与安全、未成年人、你的权利与联系方式、政策更新。统计段写明字段、无 cookie、不跨站追踪、保留口径（仅在汇总分析所需期间保留）；只要 `analyticsScript` 的行为或字段有变，这条页面和首页 FAQ 一起改，三处说法必须一致。页面不放弹窗，入口只在页脚右侧。
 
 ## 本地开发
 
@@ -185,6 +191,8 @@ hugo --minify                      # production，会请求 GitHub 取最新 rel
 - [ ] 构建时取到最新 release：首屏胶囊、下载页版本 / 地址 / 大小、首页最近更新都来自它
 - [ ] GitHub API 不可用时构建回退到 `data/release.json` 快照并有 warning，站点仍能部署
 - [ ] 发布后在 CF Pages 点 Retry deployment，官网随构建更新；`main` 上没有 bot commit
+- [ ] 页脚左侧版权（年份随构建更新）、右侧隐私政策链接，390px 下左右对齐且不换行
+- [ ] 隐私政策中英文各一页，亮暗两种主题下正文与页脚都正常
 - [ ] 无 JS 时页面仍可读、按钮仍可用（首屏固定 GitHub Light，悬停只靠 CSS；最近更新由构建生成；截图链接直接开原图）
 
 ## 实现记录
@@ -196,4 +204,8 @@ hugo --minify                      # production，会请求 GitHub 取最新 rel
 - 2026-11-23：下载页补上 Linux：生成脚本认领 `zpad_<版本>_amd64.deb`、`zpad-<版本>-1.x86_64.rpm`、`zpad-<版本>-linux-amd64.tar.gz`，新增 `/download/linux`、`/download/linux-rpm`、`/download/linux-tar` 短链并重新生成现有版本的数据；Linux 卡片给 deb（主按钮）与 rpm 两个按钮，与另外两个平台对齐，tar.gz 只在安装说明里通过 `install.sh` 一行命令出现。说明里写清 deb / rpm 由包管理器更新、只有装进 `~/.local` 的实例能自更新；首页首屏与常见问题同步去掉「即将上线」。
 - 2026-11-24：0.5.0 界面截图更新。截图场景扩到 4 组：分屏与设置保持 ZPad 亮 / 暗色，设置展开主题下拉；新增 Markdown 预览（GitHub Light）与跨文件搜索（One Dark），图库从 4 张变 6 张。功能卡「亮 / 暗主题」改为「20 套内置主题」。首屏换成 `hero`（GitHub Light），鼠标悬停淡入 One Dark 版本，不再跟站点主题切换；`shot.html` 与 `site.js` 里原来的首屏亮暗切换逻辑一并删掉。
 - 2026-11-24：版本数据改为构建时从 GitHub API 取。新增 `partials/release.html`（生产构建取 `releases/latest`，失败回退 `data/release.json` 快照，缓存键带构建时间）和 `partials/release-assets.html`（按文件名分类并格式化大小）；首页、下载页、JSON-LD 都用它。`_redirects` 改由 `layouts/index.redirects` 生成，删除 `static/_redirects`。删除 `.github/workflows/website.yml`、`release.yml` 的 `site` 作业和 `website/scripts/release/main.go`：仓库不再有 bot commit；发布后手动在 CF Pages 点 Retry deployment。`hugo.toml` 放行只读 `GITHUB_TOKEN`（可选）。
-- 未接入统计：`cfAnalyticsToken` 留空，拿到 token 填入即生效。
+- 2026-11-25：官网统计换成 `tj.rss.ink` 的访问统计脚本，配置在 `hugo.toml` 的 `analyticsScript`；移除 Cloudflare Web Analytics 的 `cfAnalyticsToken` 与 beacon，FAQ 和本节文案不再提 Cloudflare。
+- 2026-11-25：新增 `/privacy/` 与 `/en/privacy/` 页面（`content/privacy.md|.en.md` + `_default/single.html` + `.legal` 样式），页脚加隐私入口，首页 FAQ 链接过去；不加同意弹窗，因为统计脚本不写 cookie。
+- 2026-11-25：页面定名「隐私政策 / Privacy Policy」，正文扩到十段（应用、访问日志、统计字段、本地存储、第三方、共享与安全、未成年人、权利与联系、更新）；页脚改成左版权 / 右隐私政策，移除许可、源码、构建来源三项；对比表「Markdown 预览」的 ZPad 一列从「内置，源码 + 预览可分屏」收成「内置」，中英同步。
+- 2026-11-25：隐私政策去掉标题下那句 lead（页面直接从标题进日期）；顶部「反馈」与「GitHub」两个外链加 `nofollow`。
+- 说明：`analyticsScript` 留空即不加载任何统计脚本。

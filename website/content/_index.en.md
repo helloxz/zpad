@@ -62,7 +62,7 @@ compare_rows:
       - "Two views, tabs in each"
   - label: "Markdown preview"
     values:
-      - "Built in, source and preview side by side"
+      - "Built in"
       - "Needs a package"
       - "Needs a plugin"
   - label: "Packages"
@@ -103,7 +103,7 @@ faq:
   - q: "Does it upload my files?"
     a: "No. It works offline; the only network request is the update check against GitHub."
   - q: "Any tracking or analytics?"
-    a: "None. The code is fully open source with no tracking and no anonymous usage data. The website only uses Cloudflare's cookieless visit counts."
+    a: "Not in the app. The code is fully open source with no tracking and no anonymous usage data. The website only counts page views to see how the download page is used, with no personal data. See the [privacy policy](/en/privacy/)."
   - q: "Why does macOS or Windows warn about it?"
     a: "The installers are not signed by Apple or Microsoft, so the system blocks them by default: right-click to open on macOS, or choose More info → Run anyway on Windows. You can check the source, or build it yourself."
   - q: "Is the updater safe?"

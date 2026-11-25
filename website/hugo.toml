@@ -11,9 +11,9 @@ disableKinds = ["taxonomy", "term", "rss"]
   github = "https://github.com/helloxz/zpad"
   issues = "https://github.com/helloxz/zpad/issues/new"
   mygo = "https://mygo.run/"
-  # Cloudflare Web Analytics: paste the token from the Pages project's
-  # Web Analytics page; the beacon is not rendered while this is empty.
-  cfAnalyticsToken = ""
+  # Site visit analytics: the script tag is rendered verbatim at the end of
+  # <head>, and nothing is rendered while this is empty. Keep it to one line.
+  analyticsScript = '<script defer src="https://tj.rss.ink/custom.js" data-website-id="d83d5bfe-5dbb-41a0-be92-6f14f13c65cf"></script>'
 
 [languages]
   [languages.zh]

@@ -1,0 +1,10 @@
+{{ define "main" }}
+<article class="section page-head legal">
+  <div class="wrap">
+    <h1>{{ .Title }}</h1>
+    {{- with .Params.lead }}<p class="lead">{{ . }}</p>{{ end }}
+    {{- with .Params.updated }}<p class="legal-date">{{ i18n "legal_updated" }} {{ . }}</p>{{ end }}
+    <div class="legal-body">{{ .Content }}</div>
+  </div>
+</article>
+{{ end }}

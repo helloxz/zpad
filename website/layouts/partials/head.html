@@ -62,6 +62,6 @@
 <script type="application/ld+json">{{ $app | jsonify | safeJS }}</script>
 {{- end }}
 
-{{- with site.Params.cfAnalyticsToken }}
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ . }}"}'></script>
+{{- with site.Params.analyticsScript }}
+{{ . | safeHTML }}
 {{- end }}
