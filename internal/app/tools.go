@@ -2,6 +2,8 @@ package app
 
 import (
 	"errors"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -32,22 +34,91 @@ const maxTextToolBytes = texttools.MaxInput
 // runTextTool transforms the selections of tab with tool. With no
 // selection, or one over the limit, it says so and changes nothing.
 func (a *App) runTextTool(tab *Tab, tool textTool) {
-	if tab == nil || tab.doc.ReadOnly || tab.preview {
+	if !a.toolSelection(tab) {
 		return
+	}
+	a.applyToolSelection(tab, func(text string, start int) (string, error) {
+		return applyTextTool(tab, tool, text, start)
+	})
+}
+
+// lineNumberMinWidth is the fewest digits a line number gets: numbers below
+// 10 are written as 01 to 09, as playlists and printed lists expect. A text
+// with more lines than that grows to the digits it needs.
+const lineNumberMinWidth = 2
+
+// runLineNumbers numbers the selected lines in document order, padded to
+// lineNumberMinWidth digits and followed by sep, so the lines of a playlist
+// read 01, 02, 03. Numbers run on across selections, and the whole change is
+// one step of undo.
+func (a *App) runLineNumbers(tab *Tab, sep string) {
+	if !a.toolSelection(tab) {
+		return
+	}
+	first, width := lineNumberPlan(tab)
+	a.applyToolSelection(tab, func(text string, start int) (string, error) {
+		n, ok := first[start]
+		if !ok {
+			n = 1
+		}
+		return texttools.NumberLines(text, sep, n, width), nil
+	})
+}
+
+// lineNumberPlan numbers the lines of every selection in document order and
+// returns the number each selection's first line gets, keyed by the
+// selection's start offset, and the digits every number is written with, at
+// least lineNumberMinWidth. It reads the selections as they are, so the
+// offsets are the ones the edits see.
+func lineNumberPlan(tab *Tab) (map[int]int, int) {
+	type span struct{ start, end int }
+	spans := make([]span, 0, 2)
+	for _, s := range tab.state.Selections() {
+		if s.Start() < s.End() {
+			spans = append(spans, span{s.Start(), s.End()})
+		}
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+
+	first := make(map[int]int, len(spans))
+	total := 0
+	for _, sp := range spans {
+		first[sp.start] = total + 1
+		// Counting needs the text, which the caller has already bounded
+		// by maxTextToolBytes.
+		total += texttools.CountLines(tab.doc.Buffer.Slice(sp.start, sp.end))
+	}
+
+	width := len(strconv.Itoa(total))
+	if width < lineNumberMinWidth {
+		width = lineNumberMinWidth
+	}
+	return first, width
+}
+
+// toolSelection reports whether a text tool may run on tab, showing the
+// reason it may not as a toast. A read-only or Markdown preview tab refuses
+// quietly: its tools are disabled in the menu.
+func (a *App) toolSelection(tab *Tab) bool {
+	if tab == nil || tab.doc.ReadOnly || tab.preview {
+		return false
 	}
 	n := selectionBytes(tab)
 	if n == 0 {
 		a.SetErrorToast(locales.TextToolNoSelection(), "")
-		return
+		return false
 	}
 	if n > maxTextToolBytes {
 		a.SetErrorToast(locales.TextToolTooLarge(), formatSize(int64(n))+" / "+formatSize(maxTextToolBytes))
-		return
+		return false
 	}
+	return true
+}
 
-	count, err := transformSelections(tab, func(text string, start int) (string, error) {
-		return applyTextTool(tab, tool, text, start)
-	})
+// applyToolSelection rewrites each selection with fn and marks the window
+// changed when anything was.
+func (a *App) applyToolSelection(tab *Tab, fn func(text string, start int) (string, error)) {
+	count, err := transformSelections(tab, fn)
 	if err != nil {
 		a.SetErrorToast(textToolErrorTitle(err), err.Error())
 		return
@@ -183,6 +254,15 @@ func (a *App) toolMenu(m *ui.Menu, tab *Tab) {
 		}
 		if mm.Item(locales.JsonMinify()).Disabled(!hasText || tooLarge).Chosen() {
 			a.runTextTool(tab, toolJSONMinify)
+		}
+	}).Disabled(!editable)
+
+	m.Submenu(locales.LineNumberGroup(), func(mm *ui.Menu) {
+		if mm.Item(locales.LineNumberComma()).Disabled(!hasText || tooLarge).Chosen() {
+			a.runLineNumbers(tab, ",")
+		}
+		if mm.Item(locales.LineNumberDot()).Disabled(!hasText || tooLarge).Chosen() {
+			a.runLineNumbers(tab, ". ")
 		}
 	}).Disabled(!editable)
 }

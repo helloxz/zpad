@@ -1006,6 +1006,36 @@ func (msgs Messages) JsonMinify() string {
 	return Catalog.Format(msgs.locale, "jsonMinify", nil)
 }
 
+// LineNumberGroup says "Number Lines"
+// in the language the app shows.
+func LineNumberGroup() string { return In(i18n.Locale()).LineNumberGroup() }
+
+// LineNumberGroup says "Number Lines"
+// in the language of msgs.
+func (msgs Messages) LineNumberGroup() string {
+	return Catalog.Format(msgs.locale, "lineNumberGroup", nil)
+}
+
+// LineNumberComma says "01,"
+// in the language the app shows.
+func LineNumberComma() string { return In(i18n.Locale()).LineNumberComma() }
+
+// LineNumberComma says "01,"
+// in the language of msgs.
+func (msgs Messages) LineNumberComma() string {
+	return Catalog.Format(msgs.locale, "lineNumberComma", nil)
+}
+
+// LineNumberDot says "01. "
+// in the language the app shows.
+func LineNumberDot() string { return In(i18n.Locale()).LineNumberDot() }
+
+// LineNumberDot says "01. "
+// in the language of msgs.
+func (msgs Messages) LineNumberDot() string {
+	return Catalog.Format(msgs.locale, "lineNumberDot", nil)
+}
+
 // TextToolNoSelection says "Select the text to process first"
 // in the language the app shows.
 func TextToolNoSelection() string { return In(i18n.Locale()).TextToolNoSelection() }

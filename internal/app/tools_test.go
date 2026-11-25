@@ -225,6 +225,143 @@ func TestTextToolUnchangedIsNoUndoStep(t *testing.T) {
 	}
 }
 
+func TestLineNumbersSelection(t *testing.T) {
+	a, tab := toolTab(t, "https://a\nhttps://b\n")
+	selectAll(tab, 0, tab.doc.Buffer.Len())
+	a.runLineNumbers(tab, ",")
+
+	want := "01,https://a\n02,https://b\n"
+	if got := tab.doc.Buffer.String(); got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+	sels := tab.state.Selections()
+	if len(sels) != 1 {
+		t.Fatalf("selections %+v", sels)
+	}
+	if got := tab.doc.Buffer.Slice(sels[0].Start(), sels[0].End()); got != want {
+		t.Fatalf("selection is %q, want %q", got, want)
+	}
+}
+
+func TestLineNumbersPadsToTwoDigits(t *testing.T) {
+	text := "a\nb\nc\nd\ne\nf\ng\nh"
+	a, tab := toolTab(t, text)
+	selectAll(tab, 0, tab.doc.Buffer.Len())
+	a.runLineNumbers(tab, ",")
+
+	want := "01,a\n02,b\n03,c\n04,d\n05,e\n06,f\n07,g\n08,h"
+	if got := tab.doc.Buffer.String(); got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestLineNumbersDotSelection(t *testing.T) {
+	a, tab := toolTab(t, "a\nb\nc")
+	selectAll(tab, 0, tab.doc.Buffer.Len())
+	a.runLineNumbers(tab, ". ")
+
+	if got, want := tab.doc.Buffer.String(), "01. a\n02. b\n03. c"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestLineNumbersPartialSelection(t *testing.T) {
+	a, tab := toolTab(t, "x\nhttps://a\nhttps://b\ny")
+	selectAll(tab, 2, tab.doc.Buffer.Len()-2)
+	a.runLineNumbers(tab, ",")
+
+	if got, want := tab.doc.Buffer.String(), "x\n01,https://a\n02,https://b\ny"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestLineNumbersContinuesAcrossSelections(t *testing.T) {
+	a, tab := toolTab(t, "a\nb\nc\nd")
+	tab.state.SetSelections(
+		editor.Selection{Anchor: 0, Head: 1},
+		editor.Selection{Anchor: 4, Head: 7},
+	)
+	a.runLineNumbers(tab, ",")
+
+	if got, want := tab.doc.Buffer.String(), "01,a\nb\n02,c\n03,d"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestLineNumbersUndoIsOneStep(t *testing.T) {
+	a, tab := toolTab(t, "a\nb\nc\nd")
+	tab.state.SetSelections(
+		editor.Selection{Anchor: 0, Head: 1},
+		editor.Selection{Anchor: 4, Head: 7},
+	)
+	a.runLineNumbers(tab, ",")
+	tab.doc.Buffer.Undo()
+
+	if got := tab.doc.Buffer.String(); got != "a\nb\nc\nd" {
+		t.Fatalf("after one undo the text is %q", got)
+	}
+}
+
+func TestLineNumbersWithoutSelection(t *testing.T) {
+	a, tab := toolTab(t, "a\nb")
+	tab.state.SetSelections(editor.Selection{Anchor: 0, Head: 0})
+	a.runLineNumbers(tab, ",")
+
+	if got := tab.doc.Buffer.String(); got != "a\nb" {
+		t.Fatalf("text %q", got)
+	}
+	if len(a.pendingToasts) != 1 || a.pendingToasts[0].Title != locales.TextToolNoSelection() {
+		t.Fatalf("toasts %+v", a.pendingToasts)
+	}
+}
+
+func TestLineNumbersReadOnly(t *testing.T) {
+	a, tab := toolTab(t, "a\nb")
+	tab.doc.ReadOnly = true
+	tab.state.ReadOnly = true
+	selectAll(tab, 0, tab.doc.Buffer.Len())
+	a.runLineNumbers(tab, ",")
+
+	if got := tab.doc.Buffer.String(); got != "a\nb" {
+		t.Fatalf("text %q", got)
+	}
+}
+
+func TestToolsMenuNumbersSelectedLines(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a\nb"))
+	tab := a.activeTab()
+	selectAll(tab, 0, tab.doc.Buffer.Len())
+
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+
+	if err := tt.Click(locales.ToolsMenu()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(locales.LineNumberGroup(), locales.LineNumberComma()); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := tab.doc.Buffer.String(), "01,a\n02,b"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestToolsMenuDisablesLineNumbersWithoutSelection(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a\nb"))
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+
+	if err := tt.Click(locales.ToolsMenu()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(locales.LineNumberGroup(), locales.LineNumberComma()); err == nil {
+		t.Fatal("line numbering is enabled without a selection")
+	}
+	tt.CloseMenu()
+}
+
 func TestToolsMenuRunsToolOnSelection(t *testing.T) {
 	a := New(settings.Default(), t.TempDir())
 	a.addDocument(docAt("/tmp/a.txt", "hello"))
