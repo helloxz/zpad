@@ -79,9 +79,9 @@ func Default() Settings {
 		SidebarOpen:    false,
 		SidebarWidth:   240,
 		ShowHidden:     false,
-		RestoreSession: false,
+		RestoreSession: true,
 		ConfirmClose:   true,
-		KeepUnsaved:    false,
+		KeepUnsaved:    true,
 	}
 }
 

@@ -17,15 +17,15 @@ func TestLoadMissingUsesDefaults(t *testing.T) {
 	}
 }
 
-func TestRestoreSessionDefaultsOff(t *testing.T) {
-	if Default().RestoreSession {
-		t.Fatal("restore session is on by default")
+func TestRestoreSessionDefaultsOn(t *testing.T) {
+	if !Default().RestoreSession {
+		t.Fatal("restore session is off by default")
 	}
 }
 
-func TestKeepUnsavedDefaultsOff(t *testing.T) {
-	if Default().KeepUnsaved {
-		t.Fatal("keeping unsaved content is on by default")
+func TestKeepUnsavedDefaultsOn(t *testing.T) {
+	if !Default().KeepUnsaved {
+		t.Fatal("keeping unsaved content is off by default")
 	}
 }
 

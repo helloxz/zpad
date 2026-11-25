@@ -13,7 +13,7 @@
 
 ## 需求
 
-- 设置 → 工作区新增「保留未保存内容」，**默认关闭**。关闭时行为与 0.4.1 完全一致。
+- 设置 → 工作区新增「保留未保存内容」，**默认开启**（0.6.0 起；更早的设置文件保留用户存下的值）。关闭时行为与 0.4.1 完全一致。
 - 开启后：
   - 关闭窗口 / 退出应用不再弹「保存全部 / 不保存 / 取消」，未保存的标签（含未命名文件）在下次启动恢复，并仍显示未保存标记。
   - 崩溃、强制结束、断电后同样恢复，最多丢最近约 5 秒的输入。
@@ -91,7 +91,7 @@ drafts/
 | `internal/app/session.go` | 会话恢复时按草稿 id / 路径匹配，未匹配的草稿追加到左栏；`paneState` 写入草稿 id 与未命名编号 |
 | `internal/app/close.go` | 开启时窗口关闭 / 退出不弹提示，先 `flushDrafts`；系统注销时写草稿而不是直接改写用户文件 |
 | `internal/app/actions.go`、`external.go`、`fileops.go`、`app.go` | 保存、重载、重命名、关闭标签时同步草稿 |
-| `internal/settings/settings.go` | `keepUnsaved`，默认 `false` |
+| `internal/settings/settings.go` | `keepUnsaved`，默认 `true`（0.6.0 起） |
 | `internal/session/session.go` | `TabState.Draft` / `TabState.Untitled` |
 | `internal/atomicfile/atomicfile.go` | 新增流式 `WriteTo`，`WriteMode` 复用它 |
 | `internal/app/settings_ui.go` | 设置开关；开启时「关闭时确认未保存文件」置灰 |
@@ -113,8 +113,8 @@ drafts/
 
 ## 验收清单
 
-- [ ] 设置 → 工作区出现「保留未保存内容」，默认关闭。
-- [ ] 关闭时：行为与 0.4.1 一致，退出仍弹「保存全部 / 不保存 / 取消」。
+- [ ] 设置 → 工作区出现「保留未保存内容」，默认开启。
+- [ ] 关掉开关后：行为与 0.4.1 一致，退出仍弹「保存全部 / 不保存 / 取消」。
 - [ ] 开启后新建未命名标签输入文字，直接 `⌘Q`，重启后内容仍在、带未保存圆点、编号正确。
 - [ ] 打开文件改内容后强杀进程（`kill -9`），重启后未保存文本恢复，未保存标记在。
 - [ ] 保存后退出，重启不再出现旧草稿。

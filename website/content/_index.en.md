@@ -30,7 +30,16 @@ features:
   - icon: grid
     title: "Ready out of the box"
     text: "No setup wizard, no plugin market. Drop a file in and write."
-features_more: "Also: encodings (UTF-8 / UTF-16 / GB18030), find and replace, session restore."
+  - icon: session
+    title: "Nothing lost on quit"
+    text: "Unsaved tabs and text are kept, and come back after a crash or restart."
+  - icon: tools
+    title: "Tools in the menu"
+    text: "Base64, MD5, JSON format and minify — on the selection, without leaving the editor."
+  - icon: terminal
+    title: "Vim mode (off by default)"
+    text: "Turn it on in settings to move, select, delete and save with Vim keys."
+features_more: "Also: encodings (UTF-8 / UTF-16 / GB18030), find and replace, cross-file search, session restore and one-click updates."
 compare_title: "How it compares"
 compare_label: "Feature"
 compare_columns: ["ZPad", "Sublime Text", "Notepad++"]

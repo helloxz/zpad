@@ -30,7 +30,16 @@ features:
   - icon: grid
     title: "开箱即用"
     text: "没有配置向导和插件市场，文件拖进来就能写。"
-features_more: "还有编码与行尾（UTF-8 / UTF-16 / GB18030）、查找替换、会话恢复。"
+  - icon: session
+    title: "关掉也不丢"
+    text: "未保存的内容自动暂存，崩溃或重启后标签和正文原样回来。"
+  - icon: tools
+    title: "右键小工具"
+    text: "Base64、MD5、JSON 格式化与压缩，选中就能用，不离开编辑器。"
+  - icon: terminal
+    title: "Vim 模式（默认关闭）"
+    text: "设置里打开后，移动、选中、删除和保存都能用 Vim 按键完成。"
+features_more: "还有编码与行尾（UTF-8 / UTF-16 / GB18030）、查找替换、跨文件搜索、会话恢复与一键更新。"
 compare_title: "同类编辑器对比"
 compare_label: "对比项"
 compare_columns: ["ZPad", "Sublime Text", "Notepad++"]
