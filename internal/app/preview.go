@@ -123,10 +123,10 @@ func (a *App) toggleTabPreview(tab *Tab) {
 	a.update()
 }
 
-// dropPreviewOptions frees what a document's preview loaded, its images
-// included, once no tab shows it any more: editing needs none of it. A
-// preview opened again builds the options anew, which also retries the
-// images that failed, and finds the recent ones in previewImageCache.
+// dropPreviewOptions frees what a document's preview loaded, its decoded
+// bitmaps included, once no tab shows it any more: editing needs none of it.
+// A preview opened again builds the options anew, retrying the images that
+// failed and decoding recent remote ones from temporary files on disk.
 func (a *App) dropPreviewOptions(doc *Document) {
 	if doc == nil {
 		return
@@ -143,11 +143,10 @@ func (a *App) dropPreviewOptions(doc *Document) {
 	doc.mdThemeUI = nil
 	doc.previewText = ""
 	doc.previewLoaded = false
-	cleared := 0
 	if !a.hasOpenMarkdownDoc() {
-		cleared = previewImages.clear()
+		previewImages.clear()
 	}
-	if hadImages || cleared > 0 {
+	if hadImages {
 		scheduleLargeDocGC()
 	}
 }

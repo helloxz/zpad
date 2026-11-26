@@ -96,20 +96,28 @@ func TestPreviewImageScalingAndLastMarkdownCacheClear(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want *ui.Bitmap", src)
 	}
-	if w, h := bm.Size(); w != 1600 || h != 1000 {
-		t.Fatalf("scaled local bitmap = %d×%d, want 1600×1000", w, h)
+	if w, h := bm.Size(); w != 1512 || h != 945 {
+		t.Fatalf("scaled local bitmap = %d×%d, want 1512×945", w, h)
 	}
 
-	// Closing the last Markdown tab clears the remote preview image cache.
-	previewImages.put("https://example.com/test.png", bm)
+	// Closing the last Markdown tab removes the remote preview temp directory.
+	previewImages.clear()
+	previewImages.put(previewImages.generation(), "https://example.com/test.png", buf.Bytes())
+	cacheDir := previewImages.dirPath()
+	if cacheDir == "" {
+		t.Fatal("expected temp cache directory")
+	}
 	if _, ok := previewImages.get("https://example.com/test.png"); !ok {
-		t.Fatal("expected cached preview image")
+		t.Fatal("expected cached preview image payload")
 	}
 	a := New(settings.Default(), dir)
 	a.addDocument(docAt(filepath.Join(dir, "README.md"), "# Hi"))
 	a.removeTab(0, 0)
 	if _, ok := previewImages.get("https://example.com/test.png"); ok {
 		t.Fatal("closing the last Markdown tab left previewImages populated")
+	}
+	if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
+		t.Fatalf("temp cache dir %q still exists: err=%v", cacheDir, err)
 	}
 }
 

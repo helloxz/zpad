@@ -11,11 +11,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+	"weak"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/helloxz/zpad/internal/settings"
@@ -366,24 +368,109 @@ func TestPreviewImageDropSchedulesOSMemoryReclamation(t *testing.T) {
 		t.Fatal("leaving image-bearing preview did not schedule FreeOSMemory")
 	}
 	waitLargeDocGCIdle(t)
+}
 
-	// 3. Closing the last Markdown tab while remote image cache is non-empty
-	// clears the cache and schedules FreeOSMemory even from edit mode.
-	bm, err := ui.DecodeBitmapScaled(testPNG(t, 16, 12), 1600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	previewImages.put("https://example.com/cached.png", bm)
-	a.removeTab(0, 1) // closes shots.md; plain.md is still open
-	if _, ok := previewImages.get("https://example.com/cached.png"); !ok {
-		t.Fatal("cache cleared while another Markdown tab remained open")
-	}
-	a.removeTab(0, 0) // closes plain.md (the last Markdown tab)
-	if _, ok := previewImages.get("https://example.com/cached.png"); ok {
-		t.Fatal("closing the last Markdown tab kept remote image cache")
-	}
-	if !largeDocGCRunning.Load() && !largeDocGCRequested.Load() {
-		t.Fatal("clearing non-empty remote image cache did not schedule FreeOSMemory")
-	}
+func TestPreviewImageTempDiskCacheReleasesBitmapsAndCleansUp(t *testing.T) {
+	previewImages.clear()
+	defer previewImages.clear()
 	waitLargeDocGCIdle(t)
+
+	pngBytes := testPNG(t, 2400, 1600)
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngBytes)
+	}))
+	defer srv.Close()
+
+	var lastBM atomic.Pointer[weak.Pointer[ui.Bitmap]]
+	prevScale := scalePreviewBitmap
+	defer func() { scalePreviewBitmap = prevScale }()
+	scalePreviewBitmap = func(data []byte, maxSide int) (*ui.Bitmap, error) {
+		bm, err := prevScale(data, maxSide)
+		if err == nil && bm != nil {
+			w := weak.Make(bm)
+			lastBM.Store(&w)
+		}
+		return bm, err
+	}
+
+	dir := t.TempDir()
+	imgURL := srv.URL + "/shot.png"
+	doc := docAt(filepath.Join(dir, "post.md"), "![shot]("+imgURL+")")
+	a := New(settings.Default(), dir)
+	a.addDocument(doc)
+	tt := ui.NewTester(a.View, 1000, 700)
+	tt.Frame()
+
+	// 1. First preview downloads, scales to 1512×1008, and caches raw bytes on disk.
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	deadline := time.Now().Add(3 * time.Second)
+	for (!doc.mdLoadedImage.Load() || previewImages.dirPath() == "") && time.Now().Before(deadline) {
+		tt.Frame()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !doc.mdLoadedImage.Load() || hits.Load() != 1 {
+		t.Fatalf("loaded=%v hits=%d, want true and 1", doc.mdLoadedImage.Load(), hits.Load())
+	}
+	cacheDir := previewImages.dirPath()
+	if _, err := os.Stat(cacheDir); err != nil {
+		t.Fatalf("temp cache dir %q missing: %v", cacheDir, err)
+	}
+	wbm := lastBM.Load()
+	if wbm == nil || wbm.Value() == nil {
+		t.Fatal("expected decoded bitmap in preview")
+	}
+	if w, h := wbm.Value().Size(); w != 1512 || h != 1008 {
+		t.Fatalf("scaled remote bitmap = %d×%d, want 1512×1008", w, h)
+	}
+
+	// 2. Returning to edit mode drops the decoded *ui.Bitmap from memory even
+	// while the Markdown tab stays open, keeping only the temp file on disk.
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	tt.Frame()
+	waitLargeDocGCIdle(t)
+	for range 4 {
+		runtime.GC()
+	}
+	if wbm.Value() != nil {
+		t.Fatal("decoded *ui.Bitmap stayed alive in memory after leaving preview")
+	}
+	if _, err := os.Stat(cacheDir); err != nil {
+		t.Fatalf("temp cache dir %q removed while Markdown tab remained open: %v", cacheDir, err)
+	}
+
+	// 3. Re-entering preview decodes from the temp file without another HTTP request.
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	deadline = time.Now().Add(3 * time.Second)
+	for !doc.mdLoadedImage.Load() && time.Now().Before(deadline) {
+		tt.Frame()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !doc.mdLoadedImage.Load() || hits.Load() != 1 {
+		t.Fatalf("re-preview loaded=%v hits=%d, want true and 1", doc.mdLoadedImage.Load(), hits.Load())
+	}
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	waitLargeDocGCIdle(t)
+
+	// 4. If the temp file vanishes externally, loadPreviewImage falls back cleanly.
+	_ = os.RemoveAll(cacheDir)
+	if _, err := loadPreviewImage(dir, imgURL); err != nil {
+		t.Fatalf("fallback reload after external temp removal failed: %v", err)
+	}
+	if hits.Load() != 2 {
+		t.Fatalf("hits after external temp removal = %d, want 2", hits.Load())
+	}
+	cacheDir2 := previewImages.dirPath()
+
+	// 5. Closing the last Markdown tab removes the temp directory on disk.
+	a.removeTab(0, 0)
+	if _, err := os.Stat(cacheDir2); !os.IsNotExist(err) {
+		t.Fatalf("temp cache dir %q still exists after closing last Markdown tab: err=%v", cacheDir2, err)
+	}
 }

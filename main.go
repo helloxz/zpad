@@ -110,6 +110,7 @@ func main() {
 		a.OpenCommandLine(os.Args[1:])
 	})
 
+	defer app.CleanupPreviewCache()
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

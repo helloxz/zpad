@@ -2,7 +2,9 @@ package app
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
@@ -30,10 +32,11 @@ const (
 	// scaled down. Decoding averages the whole picture, so a 48 MP photo
 	// would peak at about 190 MB for a moment.
 	previewImageMaxPixels = 24 << 20
-	// previewImageMaxSide is how large a remote image is kept, in pixels:
-	// the preview is 820 DIP wide, and this keeps an image sharp on a 2×
-	// display without holding more than the screen shows.
-	previewImageMaxSide = 1600
+	// previewImageMaxSide is how large a preview image is kept, in pixels:
+	// the preview's text column is 756 DIP wide (820 DIP less 2×32 padding),
+	// so 1512 pixels matches a 2× Retina display pixel-for-pixel without
+	// holding more than the column can show.
+	previewImageMaxSide = 1512
 	// previewImageSlots bounds the images downloading at once, so a document
 	// of 30 images does not open 30 connections at the same moment.
 	previewImageSlots = 4
@@ -44,9 +47,9 @@ const (
 	// previewImageTimeout covers a whole request, body included, so a
 	// server that stops mid-picture cannot hold a slot forever.
 	previewImageTimeout = 15 * time.Second
-	// previewImageCacheBytes bounds the decoded images kept after the
-	// preview closes, which makes opening it again quick.
-	previewImageCacheBytes = 32 << 20
+	// previewImageCacheBytes bounds the compressed remote image files kept
+	// in the temporary directory while Markdown documents remain open.
+	previewImageCacheBytes = 64 << 20
 )
 
 // previewImageClient downloads remote images. Its default transport keeps
@@ -65,18 +68,21 @@ var previewImagesDecoding = make(chan struct{}, previewImageDecodeSlots)
 // tests can observe concurrent decode slots deterministically.
 var scalePreviewBitmap = ui.DecodeBitmapScaled
 
-// cachedPreviewImage is one image of previewImageCache, with the bytes its
-// pixels take.
+// cachedPreviewImage is one remote image file stored on disk in
+// previewImageCache, with its compressed byte size.
 type cachedPreviewImage struct {
-	src  ui.ImageSource
+	path string
 	size int
 }
 
-// previewImageCache keeps decoded remote images by address, so toggling the
-// preview off and on again shows them at once. A document's options hold
-// their images while a preview shows; this bounds what stays once it closes.
+// previewImageCache stores compressed remote image payloads in a dedicated
+// temporary directory on disk so leaving a preview frees every decoded RGBA
+// bitmap from memory while re-entering the preview avoids downloading them
+// again. Closing the last Markdown tab or quitting removes the directory.
 type previewImageCache struct {
 	mu      sync.Mutex
+	gen     uint64
+	dir     string
 	bytes   int
 	urls    []string // oldest first
 	entries map[string]cachedPreviewImage
@@ -84,42 +90,94 @@ type previewImageCache struct {
 
 var previewImages previewImageCache
 
-// get returns the cached image at url, marking it the newest.
-func (c *previewImageCache) get(url string) (ui.ImageSource, bool) {
+// CleanupPreviewCache removes any temporary directory created for remote
+// Markdown preview images.
+func CleanupPreviewCache() {
+	previewImages.clear()
+}
+
+func (c *previewImageCache) generation() uint64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.gen
+}
+
+func (c *previewImageCache) dirPath() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.dir
+}
+
+// get reads the cached image payload for url from disk, marking it newest.
+// If the underlying temporary file disappeared externally, the entry is
+// dropped so the caller fetches it again cleanly.
+func (c *previewImageCache) get(url string) ([]byte, bool) {
+	c.mu.Lock()
 	e, ok := c.entries[url]
+	if ok {
+		for i, u := range c.urls {
+			if u == url {
+				c.urls = append(c.urls[:i], c.urls[i+1:]...)
+				c.urls = append(c.urls, url)
+				break
+			}
+		}
+	}
+	path := e.path
+	c.mu.Unlock()
 	if !ok {
 		return nil, false
 	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		c.evictPath(url, path)
+		return nil, false
+	}
+	return data, true
+}
+
+func (c *previewImageCache) evictPath(url, path string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, ok := c.entries[url]
+	if !ok || e.path != path {
+		return
+	}
+	c.bytes -= e.size
+	delete(c.entries, url)
 	for i, u := range c.urls {
 		if u == url {
-			c.urls = append(c.urls[:i], c.urls[i+1:]...)
-			c.urls = append(c.urls, url)
+			c.urls = slices.Delete(c.urls, i, i+1)
 			break
 		}
 	}
-	return e.src, true
 }
 
-// put caches src at url, dropping the oldest images to stay within the
-// budget. It takes images of the app's own goroutines, so it locks.
-func (c *previewImageCache) put(url string, src ui.ImageSource) {
-	w, h := ui.ImageSize(src)
-	size := int(w*h) * 4
-	if size <= 0 {
-		size = 4
-	}
-	if size > previewImageCacheBytes {
-		return // it alone fills the cache: keep it nowhere
+// put writes data for url into the temporary directory under generation gen,
+// evicting the oldest files to stay within previewImageCacheBytes. Downloads
+// started before a clear carry an older gen and leave no files behind.
+func (c *previewImageCache) put(gen uint64, url string, data []byte) {
+	size := len(data)
+	if size <= 0 || size > previewImageCacheBytes {
+		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.entries == nil {
-		c.entries = map[string]cachedPreviewImage{}
+	if gen != c.gen {
+		return
 	}
 	if _, ok := c.entries[url]; ok {
 		return
+	}
+	if c.dir == "" {
+		dir, err := os.MkdirTemp("", "zpad-preview-*")
+		if err != nil {
+			return
+		}
+		c.dir = dir
+	}
+	if c.entries == nil {
+		c.entries = map[string]cachedPreviewImage{}
 	}
 	for c.bytes+size > previewImageCacheBytes && len(c.urls) > 0 {
 		oldest := c.urls[0]
@@ -127,23 +185,33 @@ func (c *previewImageCache) put(url string, src ui.ImageSource) {
 		if e, ok := c.entries[oldest]; ok {
 			c.bytes -= e.size
 			delete(c.entries, oldest)
+			_ = os.Remove(e.path)
 		}
 	}
+	sum := sha256.Sum256([]byte(url))
+	path := filepath.Join(c.dir, hex.EncodeToString(sum[:]))
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return
+	}
 	c.urls = append(c.urls, url)
-	c.entries[url] = cachedPreviewImage{src: src, size: size}
+	c.entries[url] = cachedPreviewImage{path: path, size: size}
 	c.bytes += size
 }
 
-// clear drops every cached remote image, as when the last Markdown document
-// closes, and returns the pixel bytes released.
-func (c *previewImageCache) clear() int {
+// clear removes every cached temporary file and its directory, as when the
+// last Markdown document closes or the app exits.
+func (c *previewImageCache) clear() {
 	c.mu.Lock()
-	freed := c.bytes
+	c.gen++
+	dir := c.dir
+	c.dir = ""
 	c.bytes = 0
 	c.urls = nil
 	c.entries = nil
+	if dir != "" {
+		_ = os.RemoveAll(dir)
+	}
 	c.mu.Unlock()
-	return freed
 }
 
 // loadPreviewImage loads one image of a Markdown preview: an address on the
@@ -196,8 +264,8 @@ func loadLocalPreviewImage(dir, raw string) (ui.ImageSource, error) {
 // calls it on a goroutine of its own, so it may wait for the network; what
 // it returns is what the view shows on its next build.
 func loadRemoteImage(raw string) (ui.ImageSource, error) {
-	if src, ok := previewImages.get(raw); ok {
-		return src, nil
+	if data, ok := previewImages.get(raw); ok {
+		return decodePreviewImage(data)
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -206,8 +274,12 @@ func loadRemoteImage(raw string) (ui.ImageSource, error) {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("image %q: unsupported address", raw)
 	}
+	gen := previewImages.generation()
 	previewImagesRunning <- struct{}{}
 	defer func() { <-previewImagesRunning }()
+	if data, ok := previewImages.get(raw); ok {
+		return decodePreviewImage(data)
+	}
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -236,7 +308,7 @@ func loadRemoteImage(raw string) (ui.ImageSource, error) {
 	if err != nil {
 		return nil, err
 	}
-	previewImages.put(raw, src)
+	previewImages.put(gen, raw, data)
 	return src, nil
 }
 

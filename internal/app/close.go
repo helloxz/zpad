@@ -46,6 +46,7 @@ func (a *App) unbackedDirtyDocs() []*Document {
 func (a *App) onWindowClose(e *mygo.CloseEvent) {
 	if a.allowClose {
 		a.saveSession()
+		previewImages.clear()
 		return
 	}
 	if a.closePromptOpen {
@@ -59,6 +60,7 @@ func (a *App) onWindowClose(e *mygo.CloseEvent) {
 		unbacked := a.unbackedDirtyDocs()
 		if len(unbacked) == 0 {
 			a.saveSession()
+			previewImages.clear()
 			return
 		}
 		e.PreventDefault()
@@ -67,6 +69,7 @@ func (a *App) onWindowClose(e *mygo.CloseEvent) {
 	}
 	if !a.Settings.ConfirmClose || !a.hasDirty() {
 		a.saveSession()
+		previewImages.clear()
 		return
 	}
 	e.PreventDefault()
@@ -92,12 +95,14 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 			a.saveDirtySync()
 		}
 		a.saveSession()
+		previewImages.clear()
 		// The session end cannot be canceled, and OnClose must not ask.
 		a.allowClose = true
 		return
 	}
 	if a.allowQuit {
 		a.saveSession()
+		previewImages.clear()
 		return
 	}
 	if a.closePromptOpen {
@@ -109,6 +114,7 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 		unbacked := a.unbackedDirtyDocs()
 		if len(unbacked) == 0 {
 			a.saveSession()
+			previewImages.clear()
 			return
 		}
 		e.PreventDefault()
@@ -117,6 +123,7 @@ func (a *App) BeforeQuit(e *mygo.QuitEvent) {
 	}
 	if !a.Settings.ConfirmClose || !a.hasDirty() {
 		a.saveSession()
+		previewImages.clear()
 		return
 	}
 	e.PreventDefault()
