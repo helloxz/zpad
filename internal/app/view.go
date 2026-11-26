@@ -45,7 +45,7 @@ func (a *App) View(c *ui.Context) {
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyB) && !c.ShortcutRepeated() {
 			a.OpenActiveInBrowser()
 		}
-		if c.Shortcut(ui.Cmd|ui.Alt, ui.KeyS) && !c.ShortcutRepeated() {
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyJ) && !c.ShortcutRepeated() {
 			a.openSnippets()
 		}
 		// Escape leaves a Markdown preview wherever the focus is: the
@@ -133,7 +133,7 @@ func (a *App) toolbar(c *ui.Context, t *ui.Theme) {
 			KeyShortcuts(ui.Cmd, ui.KeyF)
 		a.toolButton(c, t)
 		a.iconButton(c, t, iconSnippets, locales.Snippets(), a.snippetsOpen, a.openSnippets).
-			KeyShortcuts(ui.Cmd|ui.Alt, ui.KeyS)
+			KeyShortcuts(ui.Cmd|ui.Shift, ui.KeyJ)
 		a.iconButton(c, t, iconInfo, locales.AboutApp(), a.aboutOpen, a.openAbout)
 		ui.Spacer(c)
 		a.iconButton(c, t, iconUpdate, locales.CheckForUpdates(), false, a.checkUpdates)

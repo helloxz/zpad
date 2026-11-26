@@ -521,7 +521,7 @@ func TestSnippetShortcutOpensThePanel(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if !a.snippetsOpen {
 		t.Fatal("the shortcut did not open the panel")
@@ -557,7 +557,7 @@ func TestSnippetPanelListsAndInsertsByClick(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if !tt.HasText("two lines") || !tt.HasText("JavaScript") {
 		t.Fatalf("the panel does not list the group and its snippet; texts %q", tt.Texts())
@@ -581,7 +581,7 @@ func TestSnippetPanelAddsAGroup(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if err := tt.Click(locales.SnippetNewGroup()); err != nil {
 		t.Fatal(err)
@@ -782,7 +782,7 @@ func TestSnippetGroupClickShowsThatGroup(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if err := tt.Click("JavaScript"); err != nil {
 		t.Fatal(err)
@@ -802,7 +802,7 @@ func TestSnippetGroupHeaderRenamesTheChosenGroup(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	// The header's actions apply to the group chosen in the list.
 	if err := tt.Click("JavaScript"); err != nil {
@@ -830,7 +830,7 @@ func TestSnippetGroupHeaderActionsNeedAGroup(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if a.snippetsGroup != -1 {
 		t.Fatalf("group %d: want the all view", a.snippetsGroup)
@@ -861,7 +861,7 @@ func TestSnippetOtherGroupsButtonShowsAll(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	a.snippetsGroup = 0
 	a.snippetsQuery = "image"
@@ -888,7 +888,7 @@ func TestSnippetRowEditButtonOpensTheDialog(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if err := tt.Click(locales.SnippetEditTitle()); err != nil {
 		t.Fatal(err)
@@ -990,7 +990,7 @@ func TestSnippetGroupSwitchKeepsTheFirstRowChosen(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 	if len(a.snippetsRows) != 2 || a.snippetsSel != 0 {
 		t.Fatalf("rows %#v, choice %d", a.snippetsRows, a.snippetsSel)
@@ -1036,7 +1036,7 @@ func TestSnippetDeleteKeepsASelection(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 
 	a.snippetsSel = 1
@@ -1069,7 +1069,7 @@ func TestSnippetGroupClickGivesTheKeyboardBack(t *testing.T) {
 	for range 2 {
 		tt.Frame()
 	}
-	tt.Key(ui.Cmd|ui.Alt, ui.KeyS)
+	tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)
 	tt.Frame()
 
 	if err := tt.Click("Markdown"); err != nil {

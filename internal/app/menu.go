@@ -52,7 +52,7 @@ func (a *App) menuItems() []*mygo.MenuItem {
 		}},
 		mygo.Separator(),
 		{Label: locales.Snippets(), Submenu: []*mygo.MenuItem{
-			{Label: locales.InsertSnippetEllipsis(), Accelerator: "CmdOrCtrl+Alt+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippets() }},
+			{Label: locales.InsertSnippetEllipsis(), Accelerator: "CmdOrCtrl+Shift+J", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippets() }},
 			{Label: locales.SnippetFromSelectionEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSnippetFromSelection() }},
 		}},
 	}
