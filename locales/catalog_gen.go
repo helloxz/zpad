@@ -156,6 +156,36 @@ func (msgs Messages) AboutProducts() string {
 	return Catalog.Format(msgs.locale, "aboutProducts", nil)
 }
 
+// AboutWebsite says "Website"
+// in the language the app shows.
+func AboutWebsite() string { return In(i18n.Locale()).AboutWebsite() }
+
+// AboutWebsite says "Website"
+// in the language of msgs.
+func (msgs Messages) AboutWebsite() string {
+	return Catalog.Format(msgs.locale, "aboutWebsite", nil)
+}
+
+// AboutPrivacy says "Privacy Policy"
+// in the language the app shows.
+func AboutPrivacy() string { return In(i18n.Locale()).AboutPrivacy() }
+
+// AboutPrivacy says "Privacy Policy"
+// in the language of msgs.
+func (msgs Messages) AboutPrivacy() string {
+	return Catalog.Format(msgs.locale, "aboutPrivacy", nil)
+}
+
+// AboutFeedback says "Feedback"
+// in the language the app shows.
+func AboutFeedback() string { return In(i18n.Locale()).AboutFeedback() }
+
+// AboutFeedback says "Feedback"
+// in the language of msgs.
+func (msgs Messages) AboutFeedback() string {
+	return Catalog.Format(msgs.locale, "aboutFeedback", nil)
+}
+
 // NewFile says "New File"
 // in the language the app shows.
 func NewFile() string { return In(i18n.Locale()).NewFile() }

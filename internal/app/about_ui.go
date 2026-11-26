@@ -10,15 +10,21 @@ import (
 	"github.com/helloxz/zpad/locales"
 )
 
-// Where the About dialog points: the project, the author's pages, and the
-// site that lists the author's other apps. The license stays plain text on
-// purpose: it names the terms, it does not need to open anything.
+// Where the About dialog points: the project, the author's pages, the site
+// that lists the author's other apps, and the app's own site, privacy policy
+// and issue tracker. The license stays plain text on purpose: it names the
+// terms, it does not need to open anything.
 const (
 	aboutRepoURL       = "https://github.com/helloxz/zpad"
 	aboutBlogURL       = "https://blog.xiaoz.org/"
 	aboutXURL          = "https://x.com/xiaozblog"
 	aboutProductsURL   = "https://xphub.dev/"
 	aboutProductsZhURL = "https://xphub.dev/zh"
+	aboutSiteURL       = "https://zpad.xphub.dev/en/"
+	aboutSiteZhURL     = "https://zpad.xphub.dev/"
+	aboutPrivacyURL    = "https://zpad.xphub.dev/en/privacy/"
+	aboutPrivacyZhURL  = "https://zpad.xphub.dev/privacy/"
+	aboutFeedbackURL   = "https://github.com/helloxz/zpad/issues/new"
 
 	// aboutIconMaxSide caps the decoded About icon: it shows at 64×64 DIPs,
 	// so 256 pixels keeps it crisp up to a 4× display without holding a
@@ -26,13 +32,30 @@ const (
 	aboutIconMaxSide = 256
 )
 
+// aboutLocalized picks between the Chinese and English page of the site, so
+// each link lands in the reader's language like the rest of the dialog.
+func aboutLocalized(zh, en string) string {
+	if strings.HasPrefix(i18n.Locale(), "zh") {
+		return zh
+	}
+	return en
+}
+
 // aboutProductsLink is the author's product page in the interface language,
 // so a Chinese reader lands on the Chinese list.
 func aboutProductsLink() string {
-	if strings.HasPrefix(i18n.Locale(), "zh") {
-		return aboutProductsZhURL
-	}
-	return aboutProductsURL
+	return aboutLocalized(aboutProductsZhURL, aboutProductsURL)
+}
+
+// aboutSiteLink is the app's own site in the interface language; the Chinese
+// site sits at the root, the English one under /en/.
+func aboutSiteLink() string {
+	return aboutLocalized(aboutSiteZhURL, aboutSiteURL)
+}
+
+// aboutPrivacyLink is the privacy policy in the interface language.
+func aboutPrivacyLink() string {
+	return aboutLocalized(aboutPrivacyZhURL, aboutPrivacyURL)
 }
 
 // loadAboutIcon decodes the icon the binary embeds once, for the About
@@ -75,9 +98,11 @@ func (a *App) openAbout() {
 	a.update()
 }
 
-// aboutModal shows the app's name, version, license, repository, and the
-// author's pages. Links open in the browser; the license is plain text
-// because it names the terms rather than pointing anywhere.
+// aboutModal shows the app's name, version, license, repository, the
+// author's pages, and a footer of the app's own site, privacy policy and
+// issue tracker. Links open in the browser; the license is plain text
+// because it names the terms rather than pointing anywhere. Clicking the
+// backdrop or pressing Escape closes it, so it carries no button of its own.
 func (a *App) aboutModal(c *ui.Context, t *ui.Theme) {
 	if !a.aboutOpen {
 		a.aboutIcon = nil
@@ -114,14 +139,26 @@ func (a *App) aboutModal(c *ui.Context, t *ui.Theme) {
 			a.aboutLink(c, t, locales.AboutBlog(), "blog.xiaoz.org", aboutBlogURL)
 			a.aboutLink(c, t, locales.AboutX(), "@xiaozblog", aboutXURL)
 			a.aboutLink(c, t, locales.AboutProducts(), "xphub.dev", aboutProductsLink())
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Spacer(c)
-				if ui.PrimaryButton(c, locales.Close()).Cursor(ui.CursorPointer).Clicked() {
-					a.aboutOpen = false
-				}
+			ui.Divider(c)
+			// One quiet row of outside links: the app's site, its privacy
+			// policy and where to report a problem. Left-aligned like the
+			// rest of the panel, and it wraps rather than overflows if a
+			// translation runs long.
+			ui.Row(c).AlignItems(ui.Center).Gap(8).Wrap().Children(func() {
+				ui.Link(c, locales.AboutWebsite(), aboutSiteLink()).FontSize(12)
+				aboutFooterDot(c, t)
+				ui.Link(c, locales.AboutPrivacy(), aboutPrivacyLink()).FontSize(12)
+				aboutFooterDot(c, t)
+				ui.Link(c, locales.AboutFeedback(), aboutFeedbackURL).FontSize(12)
 			})
 		})
 	})
+}
+
+// aboutFooterDot separates two links of the About dialog's footer row. It is
+// plain punctuation rather than a label, so it stays out of the catalogs.
+func aboutFooterDot(c *ui.Context, t *ui.Theme) {
+	ui.Text(c, "·").FontSize(12).TextColor(t.TextMuted)
 }
 
 // aboutLink is one label and the link beside it.

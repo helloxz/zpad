@@ -25,6 +25,9 @@ func TestAboutDialogShowsLicenseAndRepository(t *testing.T) {
 		"blog.xiaoz.org",
 		"@xiaozblog",
 		"xphub.dev",
+		locales.AboutWebsite(),
+		locales.AboutPrivacy(),
+		locales.AboutFeedback(),
 	} {
 		if !tt.HasText(want) {
 			t.Errorf("about dialog does not show %q; texts %q", want, tt.Texts())
@@ -48,8 +51,8 @@ func TestToolbarAboutButtonOpensDialog(t *testing.T) {
 	}
 }
 
-// The license states the terms, so it is plain text: only the project and
-// the author's pages are links.
+// The license states the terms, so it is plain text: only the project, the
+// author's pages and the footer links are links.
 func TestAboutLinksOpenInBrowser(t *testing.T) {
 	a := New(settings.Default(), t.TempDir())
 	a.aboutOpen = true
@@ -66,6 +69,9 @@ func TestAboutLinksOpenInBrowser(t *testing.T) {
 		{"blog.xiaoz.org", aboutBlogURL},
 		{"@xiaozblog", aboutXURL},
 		{"xphub.dev", aboutProductsURL},
+		{locales.AboutWebsite(), aboutSiteURL},
+		{locales.AboutPrivacy(), aboutPrivacyURL},
+		{locales.AboutFeedback(), aboutFeedbackURL},
 	} {
 		if err := tt.Click(link.text); err != nil {
 			t.Fatalf("click %q: %v", link.text, err)
@@ -77,23 +83,35 @@ func TestAboutLinksOpenInBrowser(t *testing.T) {
 	}
 }
 
-// The products page follows the interface language.
-func TestAboutProductsLinkFollowsLanguage(t *testing.T) {
-	cases := []struct{ locale, want string }{
-		{"zh-Hans", aboutProductsZhURL},
-		{"en", aboutProductsURL},
+// The products, site and privacy links follow the interface language.
+func TestAboutLinksFollowLanguage(t *testing.T) {
+	cases := []struct {
+		locale   string
+		products string
+		site     string
+		privacy  string
+	}{
+		{"zh-Hans", aboutProductsZhURL, aboutSiteZhURL, aboutPrivacyZhURL},
+		{"en", aboutProductsURL, aboutSiteURL, aboutPrivacyURL},
 	}
 	for _, c := range cases {
 		locale := c.locale
 		i18n.SetLocaleFunc(func() string { return locale })
-		if got := aboutProductsLink(); got != c.want {
-			t.Errorf("aboutProductsLink() in %s = %q, want %q", locale, got, c.want)
+		if got := aboutProductsLink(); got != c.products {
+			t.Errorf("aboutProductsLink() in %s = %q, want %q", locale, got, c.products)
+		}
+		if got := aboutSiteLink(); got != c.site {
+			t.Errorf("aboutSiteLink() in %s = %q, want %q", locale, got, c.site)
+		}
+		if got := aboutPrivacyLink(); got != c.privacy {
+			t.Errorf("aboutPrivacyLink() in %s = %q, want %q", locale, got, c.privacy)
 		}
 	}
 	i18n.SetLocaleFunc(func() string { return "en" })
 }
 
-// The author section is translated like the rest of the dialog.
+// The author section and the footer are translated like the rest of the
+// dialog.
 func TestAboutDialogFollowsLanguage(t *testing.T) {
 	i18n.SetLocaleFunc(func() string { return "zh-Hans" })
 	defer i18n.SetLocaleFunc(func() string { return "en" })
@@ -101,22 +119,27 @@ func TestAboutDialogFollowsLanguage(t *testing.T) {
 	a := New(settings.Default(), t.TempDir())
 	a.aboutOpen = true
 	tt := ui.NewTester(a.View, 900, 700)
-	for _, want := range []string{locales.AboutContactAuthor(), "联系作者", "博客", "更多产品"} {
+	for _, want := range []string{locales.AboutContactAuthor(), "联系作者", "博客", "更多产品", "官网", "隐私政策", "问题反馈"} {
 		if !tt.HasText(want) {
 			t.Errorf("the Chinese about dialog does not show %q; texts %q", want, tt.Texts())
 		}
 	}
 }
 
+// The Close button is gone: the backdrop and Escape are the ways out.
 func TestAboutDialogCloses(t *testing.T) {
 	a := New(settings.Default(), t.TempDir())
 	a.aboutOpen = true
 	tt := ui.NewTester(a.View, 900, 700)
-	if err := tt.Click(locales.Close()); err != nil {
-		t.Fatal(err)
+	if tt.HasText(locales.Close()) {
+		t.Fatalf("the about dialog still shows a close button; texts %q", tt.Texts())
 	}
+
+	// A corner of the window is the backdrop, outside the centered panel.
+	tt.ClickAt(10, 10)
+	tt.Frame()
 	if a.aboutOpen {
-		t.Fatal("the close button did not close the about dialog")
+		t.Fatal("clicking the backdrop did not close the about dialog")
 	}
 
 	a.aboutOpen = true
