@@ -9,8 +9,10 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -251,4 +253,137 @@ func TestMarkdownPreviewAsksForRemoteImages(t *testing.T) {
 	if atomic.LoadInt32(&hits) == 0 {
 		t.Fatal("the preview never asked for the image")
 	}
+}
+
+func TestPreviewImageDecodeConcurrencyBounded(t *testing.T) {
+	data := testPNG(t, 8, 8)
+	prev := scalePreviewBitmap
+	defer func() { scalePreviewBitmap = prev }()
+
+	var active, peak atomic.Int32
+	entered := make(chan struct{}, 8)
+	release := make(chan struct{})
+	scalePreviewBitmap = func(raw []byte, maxSide int) (*ui.Bitmap, error) {
+		cur := active.Add(1)
+		for {
+			old := peak.Load()
+			if cur <= old || peak.CompareAndSwap(old, cur) {
+				break
+			}
+		}
+		entered <- struct{}{}
+		<-release
+		active.Add(-1)
+		return prev(raw, maxSide)
+	}
+
+	const total = 6
+	var wg sync.WaitGroup
+	errs := make(chan error, total)
+	for range total {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := decodePreviewImage(data)
+			errs <- err
+		}()
+	}
+
+	for range previewImageDecodeSlots {
+		<-entered
+	}
+	// Give remaining goroutines a chance to contend on previewImagesDecoding.
+	time.Sleep(25 * time.Millisecond)
+	if got := active.Load(); got != previewImageDecodeSlots {
+		close(release)
+		wg.Wait()
+		t.Fatalf("active decoders = %d, want %d", got, previewImageDecodeSlots)
+	}
+
+	close(release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("decodePreviewImage failed: %v", err)
+		}
+	}
+	if got := peak.Load(); got != previewImageDecodeSlots {
+		t.Fatalf("peak concurrent decoders = %d, want %d", got, previewImageDecodeSlots)
+	}
+}
+
+func waitLargeDocGCIdle(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && (largeDocGCRunning.Load() || largeDocGCRequested.Load()) {
+		time.Sleep(15 * time.Millisecond)
+	}
+	if largeDocGCRunning.Load() || largeDocGCRequested.Load() {
+		t.Fatal("timed out waiting for background GC to settle")
+	}
+}
+
+func TestPreviewImageDropSchedulesOSMemoryReclamation(t *testing.T) {
+	previewImages.clear()
+	waitLargeDocGCIdle(t)
+
+	dir := t.TempDir()
+	shotPath := filepath.Join(dir, "shot.png")
+	if err := os.WriteFile(shotPath, testPNG(t, 16, 12), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Plain-text Markdown preview does not schedule FreeOSMemory on exit.
+	a := New(settings.Default(), dir)
+	plain := docAt(filepath.Join(dir, "plain.md"), "# Heading\n\nJust text.")
+	a.addDocument(plain)
+	tt := ui.NewTester(a.View, 900, 700)
+	tt.Frame()
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	if largeDocGCRunning.Load() || largeDocGCRequested.Load() {
+		t.Fatal("leaving plain-text Markdown preview scheduled FreeOSMemory")
+	}
+
+	// 2. Leaving a preview that loaded an image schedules FreeOSMemory.
+	withImg := docAt(filepath.Join(dir, "shots.md"), "![shot](shot.png)")
+	a.addDocument(withImg)
+	a.ToggleMarkdownPreview()
+	tt.Frame()
+	deadline := time.Now().Add(2 * time.Second)
+	for !withImg.mdLoadedImage.Load() && time.Now().Before(deadline) {
+		tt.Frame()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !withImg.mdLoadedImage.Load() {
+		t.Fatal("preview did not load local image")
+	}
+	a.ToggleMarkdownPreview()
+	if !largeDocGCRunning.Load() && !largeDocGCRequested.Load() {
+		t.Fatal("leaving image-bearing preview did not schedule FreeOSMemory")
+	}
+	waitLargeDocGCIdle(t)
+
+	// 3. Closing the last Markdown tab while remote image cache is non-empty
+	// clears the cache and schedules FreeOSMemory even from edit mode.
+	bm, err := ui.DecodeBitmapScaled(testPNG(t, 16, 12), 1600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previewImages.put("https://example.com/cached.png", bm)
+	a.removeTab(0, 1) // closes shots.md; plain.md is still open
+	if _, ok := previewImages.get("https://example.com/cached.png"); !ok {
+		t.Fatal("cache cleared while another Markdown tab remained open")
+	}
+	a.removeTab(0, 0) // closes plain.md (the last Markdown tab)
+	if _, ok := previewImages.get("https://example.com/cached.png"); ok {
+		t.Fatal("closing the last Markdown tab kept remote image cache")
+	}
+	if !largeDocGCRunning.Load() && !largeDocGCRequested.Load() {
+		t.Fatal("clearing non-empty remote image cache did not schedule FreeOSMemory")
+	}
+	waitLargeDocGCIdle(t)
 }

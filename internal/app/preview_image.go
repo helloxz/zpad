@@ -34,10 +34,13 @@ const (
 	// the preview is 820 DIP wide, and this keeps an image sharp on a 2×
 	// display without holding more than the screen shows.
 	previewImageMaxSide = 1600
-	// previewImageSlots bounds the images downloading and decoding at once,
-	// so a document of 30 images neither opens 30 connections at once nor
-	// decodes them all at the same moment.
+	// previewImageSlots bounds the images downloading at once, so a document
+	// of 30 images does not open 30 connections at the same moment.
 	previewImageSlots = 4
+	// previewImageDecodeSlots bounds full-resolution raster decodes running
+	// at once across remote, local and inline images: a @2x screenshot with
+	// alpha expands to tens of megabytes in NRGBA and RGBA before scaling.
+	previewImageDecodeSlots = 2
 	// previewImageTimeout covers a whole request, body included, so a
 	// server that stops mid-picture cannot hold a slot forever.
 	previewImageTimeout = 15 * time.Second
@@ -53,6 +56,14 @@ var previewImageClient = &http.Client{Timeout: previewImageTimeout}
 // previewImagesRunning is the semaphore of previewImageSlots: send to take a
 // slot, receive to give it back.
 var previewImagesRunning = make(chan struct{}, previewImageSlots)
+
+// previewImagesDecoding is the semaphore of previewImageDecodeSlots: held
+// only around raster decoding and scaling, never across network IO or locks.
+var previewImagesDecoding = make(chan struct{}, previewImageDecodeSlots)
+
+// scalePreviewBitmap decodes and shrinks a raster image. It is a variable so
+// tests can observe concurrent decode slots deterministically.
+var scalePreviewBitmap = ui.DecodeBitmapScaled
 
 // cachedPreviewImage is one image of previewImageCache, with the bytes its
 // pixels take.
@@ -124,13 +135,15 @@ func (c *previewImageCache) put(url string, src ui.ImageSource) {
 }
 
 // clear drops every cached remote image, as when the last Markdown document
-// closes.
-func (c *previewImageCache) clear() {
+// closes, and returns the pixel bytes released.
+func (c *previewImageCache) clear() int {
 	c.mu.Lock()
+	freed := c.bytes
 	c.bytes = 0
 	c.urls = nil
 	c.entries = nil
 	c.mu.Unlock()
+	return freed
 }
 
 // loadPreviewImage loads one image of a Markdown preview: an address on the
@@ -265,7 +278,9 @@ func decodePreviewImage(data []byte) (ui.ImageSource, error) {
 	if int64(cfg.Width)*int64(cfg.Height) > previewImageMaxPixels {
 		return nil, fmt.Errorf("image of %d×%d pixels is over the limit", cfg.Width, cfg.Height)
 	}
-	return ui.DecodeBitmapScaled(data, previewImageMaxSide)
+	previewImagesDecoding <- struct{}{}
+	defer func() { <-previewImagesDecoding }()
+	return scalePreviewBitmap(data, previewImageMaxSide)
 }
 
 // isSVGImage reports whether data is SVG markup, which image.DecodeConfig

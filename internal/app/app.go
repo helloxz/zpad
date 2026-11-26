@@ -641,10 +641,11 @@ var (
 )
 
 // scheduleLargeDocGC reclaims heap and returns idle pages to the operating
-// system shortly after a multi-megabyte document closes. Waiting past the next
-// frame lets the UI engine drop the previous frame's editor callbacks first,
-// and FreeOSMemory updates OS memory accounting immediately instead of leaving
-// hundreds of megabytes in Go's idle page pool.
+// system shortly after a multi-megabyte document closes or an image-bearing
+// Markdown preview / remote image cache releases its bitmaps. Waiting past the
+// next frame lets the UI engine drop the previous frame's callbacks first, and
+// FreeOSMemory updates OS memory accounting immediately instead of leaving
+// tens or hundreds of megabytes in Go's idle page pool.
 func scheduleLargeDocGC() {
 	largeDocGCRequested.Store(true)
 	if !largeDocGCRunning.CompareAndSwap(false, true) {

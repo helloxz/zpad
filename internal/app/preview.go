@@ -138,12 +138,17 @@ func (a *App) dropPreviewOptions(doc *Document) {
 			}
 		}
 	}
+	hadImages := doc.mdLoadedImage.Swap(false)
 	doc.md = nil
 	doc.mdThemeUI = nil
 	doc.previewText = ""
 	doc.previewLoaded = false
+	cleared := 0
 	if !a.hasOpenMarkdownDoc() {
-		previewImages.clear()
+		cleared = previewImages.clear()
+	}
+	if hadImages || cleared > 0 {
+		scheduleLargeDocGC()
 	}
 }
 
@@ -189,9 +194,14 @@ func (a *App) markdownOptions(doc *Document, t *ui.Theme) *markdown.Options {
 					raw = decoded
 				}
 			}
-			return loadPreviewImage(dir, raw)
+			src, err := loadPreviewImage(dir, raw)
+			if err == nil && src != nil {
+				doc.mdLoadedImage.Store(true)
+			}
+			return src, err
 		}}
 		opts.OnLink = func(raw string) { a.openMarkdownLink(doc, raw) }
+		doc.mdLoadedImage.Store(false)
 		doc.md = opts
 		doc.mdPath = doc.Path
 		doc.mdThemeUI = nil

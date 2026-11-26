@@ -107,6 +107,7 @@ ZPad 是一个基于 [MyGo](https://mygo.run/) 原生 UI 的轻量级文本 / �
 | 2026-11-26 | 主题细节全面打磨：默认「ZPad 亮色 / ZPad 暗色」与全部 18 套命名主题统一精修（仅改 `internal/theme` 色表）。修复命名主题标点被染成运算符亮色、属性/键名错绑函数色、`inkOn` 在浅色主题算出蓝底纯黑字、暗色当前查找匹配反差过低与 Tooltip 闪白块等问题；重点还原 Monokai 官方质感（暖白标点与光标、斜体青色类型、非加粗玫红关键字、暖金 UI 强调色与柔和当前行），补齐 One Dark / Dracula / GitHub Light / Catppuccin 等官方属性与转义色，并将 Ayu Light、Rosé Pine Dawn、Everforest Light、Solarized Light 等发虚语法色全部拉回安全对比度（≥ 3.8:1），补齐全部主题的三层侧栏/标签栏景深与半透明编辑器辅助线。未发布。 |
 | 2026-11-26 | 关于页面：去掉「关闭」按钮，点空白处或按 Esc 关闭；「联系作者」下补一条分割线，底部新增左对齐的一行链接「官网 · 隐私政策 · 问题反馈」，官网与隐私政策按界面语言分别指向 `zpad.xphub.dev` / `zpad.xphub.dev/en`，反馈直达 GitHub 新建 issue；「更多产品」位置不变。文案进两份 catalog，链接语言选择抽成 `aboutLocalized` 与 `aboutSiteLink` / `aboutPrivacyLink`。未发布。 |
 | 2026-11-26 | JSON 整篇处理：文件是 JSON（`.json` / `.jsonc` / `.json5` / `.webmanifest`、按文件名识别的配置）或未命名文件在状态栏选了 JSON 时，没有选中也能直接用「格式化 / 压缩」，菜单文案不变；有选中时仍只处理选区，Base64 / MD5 / 行号仍要求选中。整篇上限 8 MB，格式化结果仍受 8 MB 输出上限约束，一次撤销即可回退，光标行列与 CRLF 保持，重写后重新判定高亮。详见 [10-text-tools.md](./10-text-tools.md)。未发布。 |
+| 2026-11-26 | Markdown 多图预览内存加固：保持远程图片 4 路并发下载与 32 MB 位图缓存不变，在 `decodePreviewImage` 增加 2 路光栅解码信号量限制远程、本地与内联大图的并发全尺寸展开峰值；退出加载过图片的预览或关闭最后一个 Markdown 标签清空远程图片缓存时，复用 `scheduleLargeDocGC()`（延迟 250 ms 异步 `debug.FreeOSMemory()`）及时将空闲堆页归还操作系统，纯文本预览切换不触发。未发布。 |
 
 ## 环境
 

@@ -62,12 +62,15 @@ type Document struct {
 
 	// md are the Markdown preview's options, shared by every preview of the
 	// document; nil until one shows. mdPath is the path their image base
-	// came from, and previewText caches the buffer at previewVersion.
+	// came from, mdLoadedImage notes on any goroutine that the preview
+	// decoded or fetched an image, and previewText caches the buffer at
+	// previewVersion.
 	md             *markdown.Options
 	mdPath         string
 	mdThemeUI      *ui.Theme
 	mdFontSize     float32
 	mdFontFamily   string
+	mdLoadedImage  atomic.Bool
 	previewText    string
 	previewVersion uint64
 	previewLoaded  bool
