@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 	"weak"
 
 	"github.com/egoist/mygo/ui"
@@ -372,6 +373,54 @@ func TestHardMax200MBAnd100MBReadOnlyGuard(t *testing.T) {
 	if got := a.unbackedDirtyDocs(); len(got) != 1 || got[0] != doc {
 		t.Fatalf("unbackedDirtyDocs = %v, want [doc]", got)
 	}
+}
+
+func TestCloseLargeDocumentReleasesOSMemory(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "large12mb.txt")
+	line := bytes.Repeat([]byte("2026-11-25 [INFO] memory release check line payload\n"), 2) // 104 B
+	if err := os.WriteFile(path, bytes.Repeat(line, 125_000), 0o644); err != nil {           // ~12.4 MB
+		t.Fatal(err)
+	}
+
+	a := New(settings.Default(), filepath.Join(dir, "s"))
+	tt := ui.NewTester(a.View, 1000, 700)
+	tt.Frame()
+
+	var base runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&base)
+
+	doc, err := loadDocument(path, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.addDocument(doc)
+	doc = nil
+	tt.Frame()
+
+	a.CloseActiveTab()
+	tt.Frame()
+	tt.Frame()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && (largeDocGCRunning.Load() || largeDocGCRequested.Load()) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	// Give the goroutine a brief moment if it had not flipped running yet.
+	time.Sleep(300 * time.Millisecond)
+
+	var after runtime.MemStats
+	runtime.ReadMemStats(&after)
+	liveDelta := int64(after.HeapAlloc) - int64(base.HeapAlloc)
+	unreleasedIdle := after.HeapIdle - after.HeapReleased
+	if liveDelta > 4<<20 {
+		t.Fatalf("live HeapAlloc stayed %d bytes above baseline after closing 12 MB doc", liveDelta)
+	}
+	if unreleasedIdle > 8<<20 {
+		t.Fatalf("unreleased idle heap = %d bytes, want <= 8 MB after FreeOSMemory", unreleasedIdle)
+	}
+	runtime.KeepAlive(tt)
 }
 
 func TestStreamingChunkSearchMatchesFullTextAcrossBoundaries(t *testing.T) {

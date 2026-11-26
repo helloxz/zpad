@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -634,18 +635,27 @@ func (a *App) removeTab(paneIdx, i int) {
 	a.updateTitle()
 }
 
-var largeDocGCPending atomic.Bool
+var (
+	largeDocGCRunning   atomic.Bool
+	largeDocGCRequested atomic.Bool
+)
 
-// scheduleLargeDocGC runs a single background garbage collection after a
-// multi-megabyte document closes, so Go's scavenger can return its pages to
-// the operating system promptly without blocking the UI thread.
+// scheduleLargeDocGC reclaims heap and returns idle pages to the operating
+// system shortly after a multi-megabyte document closes. Waiting past the next
+// frame lets the UI engine drop the previous frame's editor callbacks first,
+// and FreeOSMemory updates OS memory accounting immediately instead of leaving
+// hundreds of megabytes in Go's idle page pool.
 func scheduleLargeDocGC() {
-	if !largeDocGCPending.CompareAndSwap(false, true) {
+	largeDocGCRequested.Store(true)
+	if !largeDocGCRunning.CompareAndSwap(false, true) {
 		return
 	}
 	go func() {
-		defer largeDocGCPending.Store(false)
-		runtime.GC()
+		defer largeDocGCRunning.Store(false)
+		for largeDocGCRequested.Swap(false) {
+			time.Sleep(250 * time.Millisecond)
+			debug.FreeOSMemory()
+		}
 	}()
 }
 
