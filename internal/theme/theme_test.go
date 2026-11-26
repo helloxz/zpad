@@ -9,27 +9,41 @@ import (
 
 func TestDefaultThemesKeepTheirColors(t *testing.T) {
 	light, dark := Default(false), Default(true)
-	if light.UI.Background != ui.Hex("#FFFFFF") || light.UI.Accent != ui.Hex("#4F46E5") {
+	if light.UI.Background != ui.Hex("#FCFCFD") || light.UI.Accent != ui.Hex("#3D5BC7") {
 		t.Error("default light palette changed")
 	}
-	if light.Chrome.Sidebar != ui.Hex("#F3F4F6") ||
-		light.Chrome.TabBar != ui.Hex("#F7F8FA") ||
-		light.Chrome.ActiveTab != ui.Hex("#FFFFFF") {
+	if light.Chrome.Sidebar != ui.Hex("#EEF1F6") ||
+		light.Chrome.TabBar != ui.Hex("#F4F6F9") ||
+		light.Chrome.ActiveTab != ui.Hex("#FCFCFD") {
 		t.Error("default light chrome changed")
 	}
-	if dark.UI.Background != ui.Hex("#0F1115") || dark.UI.Accent != ui.Hex("#7C8CFF") {
+	if dark.UI.Background != ui.Hex("#161A22") || dark.UI.Accent != ui.Hex("#6E82EB") {
 		t.Error("default dark palette changed")
 	}
-	if dark.Chrome.Sidebar != ui.Hex("#12161F") ||
-		dark.Chrome.TabBar != ui.Hex("#151922") ||
-		dark.Chrome.ActiveTab != ui.Hex("#1B202B") {
+	if dark.Chrome.Sidebar != ui.Hex("#12161D") ||
+		dark.Chrome.TabBar != ui.Hex("#141820") ||
+		dark.Chrome.ActiveTab != ui.Hex("#161A22") {
 		t.Error("default dark chrome changed")
 	}
-	if got := light.Code.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#7C3AED") {
-		t.Errorf("light keyword %v, want #7C3AED", got)
+	if got := light.Code.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#6A44B5") {
+		t.Errorf("light keyword %v, want #6A44B5", got)
 	}
-	if got := dark.Code.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#C4A7FF") {
-		t.Errorf("dark keyword %v, want #C4A7FF", got)
+	if got := dark.Code.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#B499ED") {
+		t.Errorf("dark keyword %v, want #B499ED", got)
+	}
+	for name, d := range map[string]*Definition{"light": light, "dark": dark} {
+		for k := editor.TokenText; k <= editor.TokenInvalid; k++ {
+			if d.Code.Tokens[k].Color == (ui.Color{}) {
+				t.Errorf("default %s leaves token %d uncolored", name, k)
+			}
+		}
+		if d.Code.Whitespace.A >= 200 || d.Code.IndentGuide.A >= 200 ||
+			d.Code.ActiveIndentGuide.A >= 200 || d.Code.MatchingBracket.A >= 200 {
+			t.Errorf("default %s editor guides/whitespace should stay translucent", name)
+		}
+		if d.Code.InactiveSelection == d.Code.Selection {
+			t.Errorf("default %s inactive selection does not dim", name)
+		}
 	}
 }
 
@@ -120,11 +134,11 @@ func TestFor(t *testing.T) {
 	if ct.Background != light.Background || ct.Text != light.Text {
 		t.Fatal("editor theme does not follow the UI theme")
 	}
-	if got := ct.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#7C3AED") {
-		t.Fatalf("keyword color %v, want #7C3AED", got)
+	if got := ct.Tokens[editor.TokenKeyword].Color; got != ui.Hex("#6A44B5") {
+		t.Fatalf("keyword color %v, want #6A44B5", got)
 	}
-	if got := ct.Tokens[editor.TokenString].Color; got != ui.Hex("#047857") {
-		t.Fatalf("string color %v, want #047857", got)
+	if got := ct.Tokens[editor.TokenString].Color; got != ui.Hex("#197250") {
+		t.Fatalf("string color %v, want #197250", got)
 	}
 }
 
@@ -149,15 +163,18 @@ func TestScrollbarsAreThin(t *testing.T) {
 func TestInverseColors(t *testing.T) {
 	for name, th := range map[string]*ui.Theme{"light": Light(), "dark": Dark()} {
 		fill, text := Inverse(th)
-		if fill != th.Text || text != th.Background {
-			t.Errorf("%s tip is %v on %v, want the text on the background", name, text, fill)
+		if fill != th.Inverse || text != th.InverseText {
+			t.Errorf("%s tip is %v on %v, want the theme's inverse colors", name, text, fill)
+		}
+		if c := contrast(text, fill); c < 4.5 {
+			t.Errorf("%s tip contrast %.2f, want at least 4.5", name, c)
 		}
 	}
 	th := *Light()
-	th.Inverse = ui.Hex("#3A3A40")
-	th.InverseText = ui.Hex("#F2F2F7")
-	if fill, text := Inverse(&th); fill != th.Inverse || text != th.InverseText {
-		t.Errorf("tip %v on %v, want the theme's inverse colors", text, fill)
+	th.Inverse = ui.Transparent
+	th.InverseText = ui.Transparent
+	if fill, text := Inverse(&th); fill != th.Text || text != th.Background {
+		t.Errorf("fallback tip %v on %v, want the text on the background", text, fill)
 	}
 }
 

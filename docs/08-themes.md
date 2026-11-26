@@ -47,7 +47,7 @@
 | Celadon | 亮 | 低饱和天青底 + 青蓝强调 |
 | Ink Wash | 亮 | 宣纸米白、墨色文字、朱砂点缀 |
 
-默认的「ZPad 亮色」「ZPad 暗色」保持 0.4.1 的色值。后续候选：Solarized Dark、Everforest、Kanagawa、Rosé Pine Moon。
+默认的「ZPad 亮色」「ZPad 暗色」在 2026-11-26 做了柔和护眼微调（收敛强调色荧光感、抬高暗色底色消除白字光晕、补齐属性/转义/正则 token、柔化缩进线/括号框/空白符与反色 Tooltip）。后续候选：Solarized Dark、Everforest、Kanagawa、Rosé Pine Moon。
 
 色板取自各项目的公开配色，均以 MIT 或同类开放许可发布；本项目只使用颜色值，不包含对方代码，主题名仅用于标识风格。
 

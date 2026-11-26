@@ -1,0 +1,46 @@
+{{- /*
+  The ten most recent published releases, fetched while the site builds.
+  Cloudflare Pages builds in production, so the changelog reads GitHub at
+  build time; `hugo server` runs in development and reads the committed
+  snapshot in data/releases.json instead.
+
+  Pre-releases are skipped, matching /releases/latest, which the download page
+  and the hero badge use. A failed request logs a warning and falls back to
+  the snapshot, so a GitHub outage never fails the build. The cache key
+  carries the build time, so a rebuild does not reuse an older response.
+
+  Returns a list of GitHub release objects: tag_name, published_at, html_url,
+  body, prerelease.
+*/ -}}
+{{- $releases := hugo.Data.releases -}}
+{{- if not $releases -}}
+  {{- $releases = slice -}}
+{{- end -}}
+{{- if hugo.IsProduction -}}
+  {{- $url := "https://api.github.com/repos/helloxz/zpad/releases?per_page=20" -}}
+  {{- $headers := dict
+    "Accept" "application/vnd.github+json"
+    "X-GitHub-Api-Version" "2022-11-28"
+    "User-Agent" "zpad-site" -}}
+  {{- with os.Getenv "GITHUB_TOKEN" -}}
+    {{- $headers = merge $headers (dict "Authorization" (printf "Bearer %s" .)) -}}
+  {{- end -}}
+  {{- $opts := dict
+    "headers" $headers
+    "key" (printf "zpad-releases-%d" now.Unix) -}}
+  {{- with try (resources.GetRemote $url $opts) -}}
+    {{- with .Err -}}
+      {{- warnf "recent releases: %v; using the committed snapshot in website/data/releases.json" . -}}
+    {{- else -}}
+      {{- $releases = .Value | transform.Unmarshal -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $published := slice -}}
+{{- range $releases -}}
+  {{- if and (not .prerelease) (not .draft) -}}
+    {{- $published = $published | append . -}}
+  {{- end -}}
+{{- end -}}
+{{- $published = first 10 $published -}}
+{{- return $published -}}

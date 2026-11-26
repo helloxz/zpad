@@ -1,0 +1,46 @@
+{{ define "main" }}
+{{- $releases := partialCached "releases.html" . "recent" -}}
+<section class="section page-head">
+  <div class="wrap">
+    <h1>{{ .Title }}</h1>
+    {{- with .Params.lead }}<p class="lead">{{ . }}</p>{{ end }}
+    {{- with .Params.note }}<p class="changelog-note">{{ . }}</p>{{ end }}
+    <p class="changelog-links">
+      <a class="link" href="{{ site.Params.github }}/releases">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
+    </p>
+  </div>
+</section>
+
+<section class="section changelog-body">
+  <div class="wrap">
+    {{- with $releases }}
+    <ol class="timeline">
+      {{- range $i, $release := . }}
+      <li class="timeline-item">
+        <article class="release">
+          <div class="release-head">
+            <span class="version">{{ strings.TrimPrefix "v" $release.tag_name }}</span>
+            <time datetime="{{ $release.published_at }}">{{ time.AsTime $release.published_at | time.Format "2006-01-02" }}</time>
+            {{- if eq $i 0 }}<span class="badge-latest">{{ i18n "latest" }}</span>{{ end }}
+          </div>
+          {{- with $release.body }}
+          <div class="release-notes">{{ . | markdownify }}</div>
+          {{- else }}
+          <p class="release-empty">{{ i18n "no_release_notes" }}</p>
+          {{- end }}
+          {{- with $release.html_url }}
+          <p class="release-link"><a class="link" href="{{ . }}" rel="nofollow noopener">{{ i18n "view_on_github" }}{{ partial "icon.html" "arrow" }}</a></p>
+          {{- end }}
+        </article>
+      </li>
+      {{- end }}
+    </ol>
+    {{- else }}
+    <p class="changelog-empty">{{ i18n "no_releases" }}</p>
+    {{- end }}
+    <p class="changelog-links changelog-links-bottom">
+      <a class="link" href="{{ site.Params.github }}/releases">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
+    </p>
+  </div>
+</section>
+{{ end }}

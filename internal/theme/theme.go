@@ -206,16 +206,16 @@ func definitionFor(t *ui.Theme) *Definition {
 func defaultDefinition(id string, dark bool) *Definition {
 	t := lightTheme()
 	chrome := Chrome{
-		Sidebar:   ui.Hex("#F3F4F6"),
-		TabBar:    ui.Hex("#F7F8FA"),
-		ActiveTab: ui.Hex("#FFFFFF"),
+		Sidebar:   ui.Hex("#EEF1F6"),
+		TabBar:    ui.Hex("#F4F6F9"),
+		ActiveTab: ui.Hex("#FCFCFD"),
 	}
 	if dark {
 		t = darkTheme()
 		chrome = Chrome{
-			Sidebar:   ui.Hex("#12161F"),
-			TabBar:    ui.Hex("#151922"),
-			ActiveTab: ui.Hex("#1B202B"),
+			Sidebar:   ui.Hex("#12161D"),
+			TabBar:    ui.Hex("#141820"),
+			ActiveTab: ui.Hex("#161A22"),
 		}
 	}
 	return &Definition{
@@ -231,29 +231,31 @@ func defaultDefinition(id string, dark bool) *Definition {
 
 func lightTheme() *ui.Theme {
 	t := ui.LightTheme()
-	t.Background = ui.Hex("#FFFFFF")
-	t.Surface = ui.Hex("#F7F8FA")
-	t.SurfaceHover = ui.Hex("#EEF0F4")
-	t.SurfacePressed = ui.Hex("#E2E5EA")
-	t.Border = ui.Hex("#E5E7EB")
-	t.Text = ui.Hex("#111827")
-	t.TextMuted = ui.Hex("#6B7280")
-	t.Accent = ui.Hex("#4F46E5")
-	t.AccentHover = ui.Hex("#4338CA")
-	t.AccentPressed = ui.Hex("#3730A3")
+	t.Background = ui.Hex("#FCFCFD")
+	t.Surface = ui.Hex("#F5F7FA")
+	t.SurfaceHover = ui.Hex("#EBEEF4")
+	t.SurfacePressed = ui.Hex("#DFE4EC")
+	t.Border = ui.Hex("#E2E6EE")
+	t.Text = ui.Hex("#1D232F")
+	t.TextMuted = ui.Hex("#646E7E")
+	t.Accent = ui.Hex("#3D5BC7")
+	t.AccentHover = ui.Hex("#344FB0")
+	t.AccentPressed = ui.Hex("#2B4399")
 	t.AccentText = ui.Hex("#FFFFFF")
-	t.Danger = ui.Hex("#DC2626")
-	t.Warning = ui.Hex("#D97706")
-	t.Success = ui.Hex("#16A34A")
-	t.Selection = ui.RGBA(79, 70, 229, 0.16)
-	t.Focus = ui.RGBA(79, 70, 229, 0.55)
+	t.Danger = ui.Hex("#D62C2C")
+	t.Warning = ui.Hex("#C8710A")
+	t.Success = ui.Hex("#189446")
+	t.Selection = ui.RGBA(61, 91, 199, 0.16)
+	t.Focus = ui.RGBA(61, 91, 199, 0.50)
 	t.FocusRingWidth = 2
 	t.FocusRingOffset = 1
-	t.Scrollbar = ui.RGBA(0, 0, 0, 0.18)
+	t.Inverse = ui.Hex("#242B38")
+	t.InverseText = ui.Hex("#F7F9FC")
+	t.Scrollbar = ui.RGBA(29, 35, 47, 0.16)
 	t.ScrollbarWidth = 6
 	t.ScrollbarStyle = ui.ScrollbarStyle{
 		TrackWidth: 10, ThumbWidth: 6, Radius: 3, MinLength: 20,
-		Thumb: ui.RGBA(0, 0, 0, 0.18), Hover: ui.RGBA(0, 0, 0, 0.28), Active: ui.RGBA(0, 0, 0, 0.38),
+		Thumb: ui.RGBA(29, 35, 47, 0.16), Hover: ui.RGBA(29, 35, 47, 0.26), Active: ui.RGBA(29, 35, 47, 0.36),
 	}
 	t.Radius = 8
 	t.Spacing = 4
@@ -263,29 +265,31 @@ func lightTheme() *ui.Theme {
 
 func darkTheme() *ui.Theme {
 	t := ui.DarkTheme()
-	t.Background = ui.Hex("#0F1115")
-	t.Surface = ui.Hex("#151922")
-	t.SurfaceHover = ui.Hex("#1F2531")
-	t.SurfacePressed = ui.Hex("#252C3A")
-	t.Border = ui.Hex("#262C38")
-	t.Text = ui.Hex("#E6E9EF")
-	t.TextMuted = ui.Hex("#9AA4B2")
-	t.Accent = ui.Hex("#7C8CFF")
-	t.AccentHover = ui.Hex("#93A1FF")
-	t.AccentPressed = ui.Hex("#6B7AEB")
-	t.AccentText = ui.Hex("#0F1115")
-	t.Danger = ui.Hex("#F87171")
-	t.Warning = ui.Hex("#FBBF24")
-	t.Success = ui.Hex("#4ADE80")
-	t.Selection = ui.Hex("#2A3350")
-	t.Focus = ui.RGBA(124, 140, 255, 0.60)
+	t.Background = ui.Hex("#161A22")
+	t.Surface = ui.Hex("#1C212B")
+	t.SurfaceHover = ui.Hex("#252B38")
+	t.SurfacePressed = ui.Hex("#2D3444")
+	t.Border = ui.Hex("#29303D")
+	t.Text = ui.Hex("#DAE0EB")
+	t.TextMuted = ui.Hex("#8B95A7")
+	t.Accent = ui.Hex("#6E82EB")
+	t.AccentHover = ui.Hex("#8395F2")
+	t.AccentPressed = ui.Hex("#5B6FD6")
+	t.AccentText = ui.Hex("#11141B")
+	t.Danger = ui.Hex("#EE7272")
+	t.Warning = ui.Hex("#ECB939")
+	t.Success = ui.Hex("#52CF82")
+	t.Selection = ui.RGBA(110, 130, 235, 0.24)
+	t.Focus = ui.RGBA(110, 130, 235, 0.55)
 	t.FocusRingWidth = 2
 	t.FocusRingOffset = 1
-	t.Scrollbar = ui.RGBA(255, 255, 255, 0.16)
+	t.Inverse = ui.Hex("#28303E")
+	t.InverseText = ui.Hex("#EAEEF6")
+	t.Scrollbar = ui.RGBA(218, 224, 235, 0.15)
 	t.ScrollbarWidth = 6
 	t.ScrollbarStyle = ui.ScrollbarStyle{
 		TrackWidth: 10, ThumbWidth: 6, Radius: 3, MinLength: 20,
-		Thumb: ui.RGBA(255, 255, 255, 0.16), Hover: ui.RGBA(255, 255, 255, 0.26), Active: ui.RGBA(255, 255, 255, 0.36),
+		Thumb: ui.RGBA(218, 224, 235, 0.15), Hover: ui.RGBA(218, 224, 235, 0.25), Active: ui.RGBA(218, 224, 235, 0.35),
 	}
 	t.Radius = 8
 	t.Spacing = 4
@@ -293,27 +297,27 @@ func darkTheme() *ui.Theme {
 	return t
 }
 
-// buildEditorTheme colors the editor for one of the default palettes,
-// keeping the token colors the app has always used.
+// buildEditorTheme colors the editor for one of the default palettes.
 func buildEditorTheme(t *ui.Theme) *editor.Theme {
 	ct := editor.DefaultTheme(t)
 	ct.Background = t.Background
 	ct.Text = t.Text
-	ct.LineNumber = t.TextMuted
+	ct.LineNumber = t.TextMuted.Alpha(0.78)
 	ct.ActiveLineNumber = t.Text
 	if t.Dark {
-		ct.ActiveLine = ui.Hex("#161B24")
+		ct.ActiveLine = ui.Hex("#1C212C")
+		ct.InactiveSelection = ui.RGBA(110, 130, 235, 0.13)
 	} else {
-		ct.ActiveLine = ui.Hex("#F8FAFC")
+		ct.ActiveLine = ui.Hex("#F5F7FB")
+		ct.InactiveSelection = ui.RGBA(61, 91, 199, 0.09)
 	}
 	ct.Selection = t.Selection
-	ct.InactiveSelection = t.Selection
 	ct.Cursor = t.Accent
-	ct.MatchingBracket = t.Accent
-	ct.IndentGuide = t.Border
-	ct.ActiveIndentGuide = t.Accent
-	ct.WrapGuide = t.Border
-	ct.Whitespace = t.TextMuted
+	ct.MatchingBracket = t.Accent.Alpha(0.45)
+	ct.IndentGuide = t.Border.Alpha(0.60)
+	ct.ActiveIndentGuide = t.Accent.Alpha(0.48)
+	ct.WrapGuide = t.Border.Alpha(0.60)
+	ct.Whitespace = t.TextMuted.Alpha(0.42)
 	ct.Error = t.Danger
 	ct.Warning = t.Warning
 	ct.Info = t.Accent
@@ -321,57 +325,66 @@ func buildEditorTheme(t *ui.Theme) *editor.Theme {
 	ct.Added = t.Success
 	ct.Deleted = t.Danger
 	ct.Modified = t.Warning
+	ct.Tokens[editor.TokenText] = editor.TokenStyle{Color: t.Text}
 
 	if t.Dark {
-		ct.Match = ui.RGBA(92, 75, 31, 1)
-		ct.CurrentMatch = ui.RGBA(183, 121, 31, 1)
-		ct.Tokens[editor.TokenKeyword] = editor.TokenStyle{Color: ui.Hex("#C4A7FF"), Bold: true}
-		ct.Tokens[editor.TokenString] = editor.TokenStyle{Color: ui.Hex("#7EE2B8")}
-		ct.Tokens[editor.TokenComment] = editor.TokenStyle{Color: ui.Hex("#6B7280"), Italic: true}
-		ct.Tokens[editor.TokenNumber] = editor.TokenStyle{Color: ui.Hex("#F5C26B")}
-		ct.Tokens[editor.TokenFunction] = editor.TokenStyle{Color: ui.Hex("#8AB4FF")}
-		ct.Tokens[editor.TokenType] = editor.TokenStyle{Color: ui.Hex("#7DD3FC")}
+		ct.Match = ui.RGBA(235, 179, 76, 0.22)
+		ct.CurrentMatch = ui.RGBA(235, 160, 52, 0.42)
+		ct.Occurrence = ui.RGBA(218, 224, 235, 0.09)
+		ct.Tokens[editor.TokenKeyword] = editor.TokenStyle{Color: ui.Hex("#B499ED"), Bold: true}
+		ct.Tokens[editor.TokenString] = editor.TokenStyle{Color: ui.Hex("#7ACBA4")}
+		ct.Tokens[editor.TokenEscape] = editor.TokenStyle{Color: ui.Hex("#DF9D67")}
+		ct.Tokens[editor.TokenRegexp] = editor.TokenStyle{Color: ui.Hex("#72C5B6")}
+		ct.Tokens[editor.TokenComment] = editor.TokenStyle{Color: ui.Hex("#6D778A"), Italic: true}
+		ct.Tokens[editor.TokenNumber] = editor.TokenStyle{Color: ui.Hex("#E3B76E")}
+		ct.Tokens[editor.TokenFunction] = editor.TokenStyle{Color: ui.Hex("#7CA4F5")}
+		ct.Tokens[editor.TokenType] = editor.TokenStyle{Color: ui.Hex("#65C2C6")}
+		ct.Tokens[editor.TokenProperty] = editor.TokenStyle{Color: ui.Hex("#8BBBE0")}
 		ct.Tokens[editor.TokenVariable] = editor.TokenStyle{Color: t.Text}
-		ct.Tokens[editor.TokenConstant] = editor.TokenStyle{Color: ui.Hex("#F5C26B")}
-		ct.Tokens[editor.TokenOperator] = editor.TokenStyle{Color: ui.Hex("#9AA4B2")}
-		ct.Tokens[editor.TokenPunctuation] = editor.TokenStyle{Color: ui.Hex("#9AA4B2")}
-		ct.Tokens[editor.TokenTag] = editor.TokenStyle{Color: ui.Hex("#C4A7FF")}
-		ct.Tokens[editor.TokenAttribute] = editor.TokenStyle{Color: ui.Hex("#8AB4FF")}
-		ct.Tokens[editor.TokenMeta] = editor.TokenStyle{Color: ui.Hex("#6B7280"), Italic: true}
+		ct.Tokens[editor.TokenConstant] = editor.TokenStyle{Color: ui.Hex("#E3B76E")}
+		ct.Tokens[editor.TokenOperator] = editor.TokenStyle{Color: ui.Hex("#949FB2")}
+		ct.Tokens[editor.TokenPunctuation] = editor.TokenStyle{Color: ui.Hex("#828D9F")}
+		ct.Tokens[editor.TokenTag] = editor.TokenStyle{Color: ui.Hex("#B499ED")}
+		ct.Tokens[editor.TokenAttribute] = editor.TokenStyle{Color: ui.Hex("#8BBBE0")}
+		ct.Tokens[editor.TokenMeta] = editor.TokenStyle{Color: ui.Hex("#6D778A"), Italic: true}
 		ct.Tokens[editor.TokenHeading] = editor.TokenStyle{Color: t.Text, Bold: true}
 		ct.Tokens[editor.TokenEmphasis] = editor.TokenStyle{Color: t.Text, Italic: true}
 		ct.Tokens[editor.TokenStrong] = editor.TokenStyle{Color: t.Text, Bold: true}
-		ct.Tokens[editor.TokenLink] = editor.TokenStyle{Color: ui.Hex("#8AB4FF")}
-		ct.Tokens[editor.TokenCode] = editor.TokenStyle{Color: ui.Hex("#7EE2B8")}
-		ct.Tokens[editor.TokenInserted] = editor.TokenStyle{Color: ui.Hex("#4ADE80")}
-		ct.Tokens[editor.TokenDeleted] = editor.TokenStyle{Color: ui.Hex("#F87171")}
-		ct.Tokens[editor.TokenInvalid] = editor.TokenStyle{Color: ui.Hex("#F87171")}
+		ct.Tokens[editor.TokenLink] = editor.TokenStyle{Color: ui.Hex("#7CA4F5")}
+		ct.Tokens[editor.TokenCode] = editor.TokenStyle{Color: ui.Hex("#7ACBA4")}
+		ct.Tokens[editor.TokenInserted] = editor.TokenStyle{Color: t.Success}
+		ct.Tokens[editor.TokenDeleted] = editor.TokenStyle{Color: t.Danger}
+		ct.Tokens[editor.TokenInvalid] = editor.TokenStyle{Color: t.Danger}
 		return ct
 	}
 
-	ct.Match = ui.RGBA(253, 230, 138, 1)
-	ct.CurrentMatch = ui.RGBA(245, 158, 11, 1)
-	ct.Tokens[editor.TokenKeyword] = editor.TokenStyle{Color: ui.Hex("#7C3AED"), Bold: true}
-	ct.Tokens[editor.TokenString] = editor.TokenStyle{Color: ui.Hex("#047857")}
-	ct.Tokens[editor.TokenComment] = editor.TokenStyle{Color: ui.Hex("#9CA3AF"), Italic: true}
-	ct.Tokens[editor.TokenNumber] = editor.TokenStyle{Color: ui.Hex("#B45309")}
-	ct.Tokens[editor.TokenFunction] = editor.TokenStyle{Color: ui.Hex("#2563EB")}
-	ct.Tokens[editor.TokenType] = editor.TokenStyle{Color: ui.Hex("#0E7490")}
+	ct.Match = ui.RGBA(245, 184, 46, 0.28)
+	ct.CurrentMatch = ui.RGBA(234, 138, 26, 0.46)
+	ct.Occurrence = ui.RGBA(29, 35, 47, 0.07)
+	ct.Tokens[editor.TokenKeyword] = editor.TokenStyle{Color: ui.Hex("#6A44B5"), Bold: true}
+	ct.Tokens[editor.TokenString] = editor.TokenStyle{Color: ui.Hex("#197250")}
+	ct.Tokens[editor.TokenEscape] = editor.TokenStyle{Color: ui.Hex("#9C4E18")}
+	ct.Tokens[editor.TokenRegexp] = editor.TokenStyle{Color: ui.Hex("#196B62")}
+	ct.Tokens[editor.TokenComment] = editor.TokenStyle{Color: ui.Hex("#8791A2"), Italic: true}
+	ct.Tokens[editor.TokenNumber] = editor.TokenStyle{Color: ui.Hex("#A45916")}
+	ct.Tokens[editor.TokenFunction] = editor.TokenStyle{Color: ui.Hex("#2958C4")}
+	ct.Tokens[editor.TokenType] = editor.TokenStyle{Color: ui.Hex("#11707A")}
+	ct.Tokens[editor.TokenProperty] = editor.TokenStyle{Color: ui.Hex("#236192")}
 	ct.Tokens[editor.TokenVariable] = editor.TokenStyle{Color: t.Text}
-	ct.Tokens[editor.TokenConstant] = editor.TokenStyle{Color: ui.Hex("#B45309")}
-	ct.Tokens[editor.TokenOperator] = editor.TokenStyle{Color: ui.Hex("#6B7280")}
-	ct.Tokens[editor.TokenPunctuation] = editor.TokenStyle{Color: ui.Hex("#6B7280")}
-	ct.Tokens[editor.TokenTag] = editor.TokenStyle{Color: ui.Hex("#7C3AED")}
-	ct.Tokens[editor.TokenAttribute] = editor.TokenStyle{Color: ui.Hex("#2563EB")}
-	ct.Tokens[editor.TokenMeta] = editor.TokenStyle{Color: ui.Hex("#9CA3AF"), Italic: true}
+	ct.Tokens[editor.TokenConstant] = editor.TokenStyle{Color: ui.Hex("#A45916")}
+	ct.Tokens[editor.TokenOperator] = editor.TokenStyle{Color: ui.Hex("#5A6577")}
+	ct.Tokens[editor.TokenPunctuation] = editor.TokenStyle{Color: ui.Hex("#727C8E")}
+	ct.Tokens[editor.TokenTag] = editor.TokenStyle{Color: ui.Hex("#6A44B5")}
+	ct.Tokens[editor.TokenAttribute] = editor.TokenStyle{Color: ui.Hex("#236192")}
+	ct.Tokens[editor.TokenMeta] = editor.TokenStyle{Color: ui.Hex("#8791A2"), Italic: true}
 	ct.Tokens[editor.TokenHeading] = editor.TokenStyle{Color: t.Text, Bold: true}
 	ct.Tokens[editor.TokenEmphasis] = editor.TokenStyle{Color: t.Text, Italic: true}
 	ct.Tokens[editor.TokenStrong] = editor.TokenStyle{Color: t.Text, Bold: true}
-	ct.Tokens[editor.TokenLink] = editor.TokenStyle{Color: ui.Hex("#2563EB")}
-	ct.Tokens[editor.TokenCode] = editor.TokenStyle{Color: ui.Hex("#047857")}
-	ct.Tokens[editor.TokenInserted] = editor.TokenStyle{Color: ui.Hex("#16A34A")}
-	ct.Tokens[editor.TokenDeleted] = editor.TokenStyle{Color: ui.Hex("#DC2626")}
-	ct.Tokens[editor.TokenInvalid] = editor.TokenStyle{Color: ui.Hex("#DC2626")}
+	ct.Tokens[editor.TokenLink] = editor.TokenStyle{Color: ui.Hex("#2958C4")}
+	ct.Tokens[editor.TokenCode] = editor.TokenStyle{Color: ui.Hex("#197250")}
+	ct.Tokens[editor.TokenInserted] = editor.TokenStyle{Color: t.Success}
+	ct.Tokens[editor.TokenDeleted] = editor.TokenStyle{Color: t.Danger}
+	ct.Tokens[editor.TokenInvalid] = editor.TokenStyle{Color: t.Danger}
 	return ct
 }
 

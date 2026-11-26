@@ -1,0 +1,72 @@
+[
+  {
+    "tag_name": "v0.7.1",
+    "published_at": "2026-11-25T13:02:04Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.7.1",
+    "prerelease": false,
+    "body": "- 优化：内存占用\r\n- 优化：大文件加载"
+  },
+  {
+    "tag_name": "v0.7.0",
+    "published_at": "2026-11-25T11:02:56Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.7.0",
+    "prerelease": false,
+    "body": "- 新增：代码片段\r\n- 新增：文本对比\r\n- 新增：选中文本可自动加行号\r\n- 优化：Windows 便携版打包移除外层目录\r\n- 优化：支持关闭工作区"
+  },
+  {
+    "tag_name": "v0.6.0",
+    "published_at": "2026-11-25T03:17:01Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.6.0",
+    "prerelease": false,
+    "body": "- 新增：设置 → 编辑器可以显示空白字符级别\r\n- 新增：支持 Vim 模式（实验性）\r\n- 变更：「启动时恢复会话」与「退出时保留更改」改为默认开启\r\n- 变更：官网同步更新"
+  },
+  {
+    "tag_name": "v0.5.2",
+    "published_at": "2026-11-24T14:53:39Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.5.2",
+    "prerelease": false,
+    "body": "- 新增：标签支持鼠标中键关闭\r\n- 优化：新建文件在状态栏选择 Markdown 后，可以直接预览\r\n- 优化：Windows 顶部工具栏展示"
+  },
+  {
+    "tag_name": "v0.5.1",
+    "published_at": "2026-11-24T10:03:19Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.5.1",
+    "prerelease": false,
+    "body": "- 新增：常用文本工具，可右键菜单调用或点击左上角工具栏调用\r\n- 新增：新建文件可以在状态栏选择类型：高亮立即生效，保存时自动带上对应后缀\r\n- 新增：Markdown 预览里按 `Esc` 返回源码\r\n- 新增：Markdown 文件的正文右键菜单可以直接打开预览\r\n- 修复：Markdown 图片无法预览问题\r\n- 修复：右键菜单重复显示分割线\r\n- 变更：部分设置选项更名"
+  },
+  {
+    "tag_name": "v0.5.0",
+    "published_at": "2026-11-24T05:09:04Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.5.0",
+    "prerelease": false,
+    "body": "- 新增：自动保留未存储内容\r\n- 新增：内置更多主题可选，支持 10 余种主题\r\n- 新增：顶部工具栏新增信息和更新按钮\r\n- 新增：工作区文件树空白处右键菜单可以新建文件与文件夹\r\n- 优化：设置面板\r\n- 优化：合并 macOS 工具栏\r\n- 优化：工作区文件树排序\r\n- 其它优化和BUG修复\r\n\r\n\r\n\r\n\r\n\r\n"
+  },
+  {
+    "tag_name": "v0.4.1",
+    "published_at": "2026-11-23T12:41:19Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.4.1",
+    "prerelease": false,
+    "body": "* 新增：官网增加软件对比\r\n* 新增：新建 tab 自动加上序号\r\n* 新增：Linux 版本构建\r\n* 修复：⌘ + M 快捷键最小化无效\r\n* 修复：⌘ + N 不取消时无法新建 tab\r\n* 修复：新建 tab 无法自动获取焦点\r\n\r\n"
+  },
+  {
+    "tag_name": "v0.4.0",
+    "published_at": "2026-11-23T09:45:24Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.4.0",
+    "prerelease": false,
+    "body": "* 新增：标签支持拖拽排序\r\n* 新增：全局文件搜索\r\n* 修复：官网图片查看器不居中的问题"
+  },
+  {
+    "tag_name": "v0.3.3",
+    "published_at": "2026-11-23T07:58:07Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.3.3",
+    "prerelease": false,
+    "body": "* 新增：官网\r\n* 修复：非分屏状态下预览 Markdown 无法退出\r\n* 优化：关于页面"
+  },
+  {
+    "tag_name": "v0.3.2",
+    "published_at": "2026-11-23T05:13:44Z",
+    "html_url": "https://github.com/helloxz/zpad/releases/tag/v0.3.2",
+    "prerelease": false,
+    "body": "* 优化：根据操作系统动态调整快捷键提示"
+  }
+]
