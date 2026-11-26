@@ -103,6 +103,12 @@ func TestNamedThemesAreComplete(t *testing.T) {
 
 func TestThemeContrast(t *testing.T) {
 	themes := append([]*Definition{Default(false), Default(true)}, Named()...)
+	syntaxTokens := []editor.TokenKind{
+		editor.TokenKeyword, editor.TokenType, editor.TokenFunction,
+		editor.TokenProperty, editor.TokenConstant, editor.TokenNumber,
+		editor.TokenString, editor.TokenEscape, editor.TokenRegexp,
+		editor.TokenOperator, editor.TokenTag, editor.TokenAttribute,
+	}
 	for _, d := range themes {
 		if c := contrast(d.UI.Text, d.UI.Background); c < 4.5 {
 			t.Errorf("theme %q text contrast %.2f, want at least 4.5", d.ID, c)
@@ -113,6 +119,49 @@ func TestThemeContrast(t *testing.T) {
 		if c := contrast(d.UI.AccentText, d.UI.Accent); c < 4.5 {
 			t.Errorf("theme %q accent text contrast %.2f, want at least 4.5", d.ID, c)
 		}
+		if d.UI.AccentText == ui.RGB(0, 0, 0) {
+			t.Errorf("theme %q uses pure black text on its accent", d.ID)
+		}
+		invFill, invText := Inverse(d.UI)
+		if c := contrast(invText, invFill); c < 4.5 {
+			t.Errorf("theme %q inverse tooltip contrast %.2f, want at least 4.5", d.ID, c)
+		}
+		for _, k := range syntaxTokens {
+			if c := contrast(d.Code.Tokens[k].Color, d.Code.Background); c < 3.8 {
+				t.Errorf("theme %q token %d contrast %.2f, want at least 3.8", d.ID, k, c)
+			}
+		}
+		if c := contrast(d.Code.Tokens[editor.TokenComment].Color, d.Code.Background); c < 2.6 {
+			t.Errorf("theme %q comment contrast %.2f, want at least 2.6", d.ID, c)
+		}
+		curMatchBg := d.Code.Background.Mix(ui.RGB(d.Code.CurrentMatch.R, d.Code.CurrentMatch.G, d.Code.CurrentMatch.B), float32(d.Code.CurrentMatch.A)/255)
+		if c := contrast(d.Code.Text, curMatchBg); c < 3.8 {
+			t.Errorf("theme %q text over current match contrast %.2f, want at least 3.8", d.ID, c)
+		}
+		if d.Code.Whitespace.A >= 200 || d.Code.IndentGuide.A >= 200 ||
+			d.Code.ActiveIndentGuide.A >= 200 || d.Code.MatchingBracket.A >= 200 {
+			t.Errorf("theme %q editor guides/whitespace should stay translucent", d.ID)
+		}
+		if d.Code.InactiveSelection == d.Code.Selection {
+			t.Errorf("theme %q inactive selection does not dim", d.ID)
+		}
+		if d.Chrome.Sidebar == d.Chrome.TabBar || d.Chrome.TabBar == d.Chrome.ActiveTab {
+			t.Errorf("theme %q flattens sidebar/tabbar/activeTab chrome (%v, %v, %v)",
+				d.ID, d.Chrome.Sidebar, d.Chrome.TabBar, d.Chrome.ActiveTab)
+		}
+	}
+	monokai, ok := Lookup("monokai")
+	if !ok {
+		t.Fatal("monokai theme missing")
+	}
+	if monokai.Code.Tokens[editor.TokenKeyword].Bold {
+		t.Error("monokai keywords should not be bold")
+	}
+	if !monokai.Code.Tokens[editor.TokenType].Italic {
+		t.Error("monokai types should be italic")
+	}
+	if monokai.Code.Tokens[editor.TokenPunctuation].Color == monokai.Code.Tokens[editor.TokenOperator].Color {
+		t.Error("monokai punctuation should stay neutral rather than pink")
 	}
 }
 

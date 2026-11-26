@@ -409,15 +409,22 @@ func luminance(c ui.Color) float64 {
 	return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
 }
 
-// inkOn picks the theme's background as text on fill when it is legible
-// there, black or white otherwise, so primary buttons stay readable in
-// every theme.
-func inkOn(fill, background ui.Color) ui.Color {
+// inkOn picks legible text for an accent surface: the theme's background
+// first, crisp white next, the theme's foreground ink after that, and black
+// or white only as a last resort so colored buttons never default to harsh
+// pure black when white or theme ink already meets WCAG AA.
+func inkOn(fill, background, text ui.Color) ui.Color {
 	if contrast(fill, background) >= 4.5 {
 		return background
 	}
-	black := ui.RGB(0, 0, 0)
 	white := ui.RGB(255, 255, 255)
+	if contrast(fill, white) >= 4.5 {
+		return white
+	}
+	if text != (ui.Color{}) && contrast(fill, text) >= 4.5 {
+		return text
+	}
+	black := ui.RGB(0, 0, 0)
 	if contrast(fill, black) >= contrast(fill, white) {
 		return black
 	}

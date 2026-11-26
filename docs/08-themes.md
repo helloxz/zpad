@@ -54,7 +54,7 @@
 ## 4. 实现
 
 - `internal/theme/theme.go`：`Definition`（UI 调色板、`Chrome`、编辑器调色板）、注册表、`Resolve` / `Normalize`、默认两套的原样构建、对比度工具。
-- `internal/theme/builtin.go`：每套命名主题只写约 18 个种子色，悬停、按下、选区、焦点环、滚动条、查找高亮与其余 token 由规则派生。
+- `internal/theme/builtin.go`：每套命名主题配置核心种子色及按需覆盖槽位（`property`、`attribute`、`escape`、`punctuation`、`cursor`、粗斜体开关），悬停、按下、反色 Tooltip（`Inverse`）、半透明辅助线、失焦选区与查找匹配叠色由规则柔和派生；Monokai 还原暖白标点与光标、斜体青色类型、非加粗玫红关键字与暖金强调色，浅色主题统一消除蓝底黑字并拉回安全语法对比度（≥ 3.8:1）与三层 Chrome 景深。
 - `internal/app/app.go`：`Settings.Theme` 是唯一真源；`Dark` 只表示当前基准；`setThemeID` 保存、切换原生外观并重绘。
 - `internal/app/settings_ui.go`：外观区改为下拉选择，按「默认主题 → 深色主题 → 浅色主题」分组；默认组包含跟随系统、ZPad 亮色与 ZPad 暗色，深色 / 浅色组只列命名主题，命名主题的名称靠左、浅色 / 深色标注固定靠右。下拉最高 320px，超出后内部滚动，键盘选择会自动滚到可见位置。
 - `internal/app/settings_ui.go`：设置弹窗改为卡片分组（700×640），每组标题带图标，卡片内每行左侧标题 + 说明、右侧控件，行间用细分隔线；窄窗口下控件移到标题下方。设置里的所有下拉改用 `SelectBase` 自绘，触发器与弹层沿用主题样式，选项悬停显示小手。
