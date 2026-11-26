@@ -470,3 +470,182 @@ func TestEditorContextMenuHasTools(t *testing.T) {
 		t.Fatalf("text at the selection is %q, want %q", got, want)
 	}
 }
+
+func jsonTab(t *testing.T, text string) (*App, *Tab) {
+	t.Helper()
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.json", text))
+	return a, a.activeTab()
+}
+
+func TestJSONFormatWholeDocument(t *testing.T) {
+	a, tab := jsonTab(t, `{"a":1,"b":[2,3]}`)
+	tab.state.SetSelections(editor.Selection{Anchor: 2, Head: 2})
+	a.runTextTool(tab, toolJSONFormat)
+
+	want := "{\n  \"a\": 1,\n  \"b\": [\n    2,\n    3\n  ]\n}"
+	if got := tab.doc.Buffer.String(); got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestJSONMinifyWholeDocumentFromStatusBarLanguage(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(newUntitled(1, "utf-8"))
+	tab := a.activeTab()
+	a.SelectLanguage(editor.LanguageNamed("JSON"))
+	tab.doc.Buffer.Set("{\n  \"a\": 1\n}")
+	tab.state.SetSelections(editor.Selection{Anchor: 1, Head: 1})
+
+	a.runTextTool(tab, toolJSONMinify)
+
+	if got := tab.doc.Buffer.String(); got != `{"a":1}` {
+		t.Fatalf("text %q", got)
+	}
+}
+
+func TestJSONWholeDocumentPrefersSelection(t *testing.T) {
+	a, tab := jsonTab(t, "x\n  {\"a\":1}\ny")
+	selectAll(tab, 4, 11)
+	a.runTextTool(tab, toolJSONFormat)
+
+	want := "x\n  {\n    \"a\": 1\n  }\ny"
+	if got := tab.doc.Buffer.String(); got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestJSONWholeDocumentKeepsCursorAndCRLF(t *testing.T) {
+	a, tab := jsonTab(t, "{\"a\":1,\r\n\"b\":2}")
+	tab.state.SetSelections(editor.Selection{Anchor: 11, Head: 11})
+	a.runTextTool(tab, toolJSONFormat)
+
+	if got, want := tab.doc.Buffer.String(), "{\n  \"a\": 1,\n  \"b\": 2\n}"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+	if got := tab.doc.Buffer.LineEnding(); got != "\r\n" {
+		t.Fatalf("line ending %q after formatting, want CRLF", got)
+	}
+	if got, want := tab.state.CursorPos(), (editor.Pos{Line: 1, Col: 3}); got != want {
+		t.Fatalf("cursor %+v, want %+v", got, want)
+	}
+}
+
+func TestJSONWholeDocumentUndoIsOneStep(t *testing.T) {
+	text := `{"a":1,"b":[2,3]}`
+	a, tab := jsonTab(t, text)
+	a.runTextTool(tab, toolJSONFormat)
+
+	if !tab.doc.Buffer.CanUndo() {
+		t.Fatal("formatting the whole document made no undo step")
+	}
+	tab.doc.Buffer.Undo()
+	if got := tab.doc.Buffer.String(); got != text {
+		t.Fatalf("after one undo the text is %q", got)
+	}
+}
+
+func TestJSONWholeDocumentUnchangedIsNoUndoStep(t *testing.T) {
+	a, tab := jsonTab(t, `{"a":1}`)
+	tab.doc.Buffer.MarkSaved()
+	a.runTextTool(tab, toolJSONMinify)
+
+	if tab.doc.Buffer.Modified() {
+		t.Fatal("minifying a compact document marked it changed")
+	}
+	if tab.doc.Buffer.CanUndo() {
+		t.Fatal("minifying a compact document added an undo step")
+	}
+}
+
+func TestJSONWholeDocumentLimit(t *testing.T) {
+	text := strings.Repeat("a", maxWholeJSONBytes+1)
+	a, tab := jsonTab(t, text)
+	a.runTextTool(tab, toolJSONFormat)
+
+	if got := tab.doc.Buffer.String(); got != text {
+		t.Fatal("the tool changed a document over the limit")
+	}
+	if len(a.pendingToasts) != 1 || a.pendingToasts[0].Title != locales.TextToolTooLarge() {
+		t.Fatalf("toasts %+v", a.pendingToasts)
+	}
+}
+
+func TestJSONWholeDocumentReadOnlyAndPreview(t *testing.T) {
+	a, tab := jsonTab(t, `{"a":1}`)
+	tab.doc.ReadOnly = true
+	tab.state.ReadOnly = true
+	a.runTextTool(tab, toolJSONFormat)
+	if got := tab.doc.Buffer.String(); got != `{"a":1}` {
+		t.Fatalf("read-only text %q", got)
+	}
+
+	b, tab2 := jsonTab(t, `{"a":1}`)
+	tab2.preview = true
+	b.runTextTool(tab2, toolJSONFormat)
+	if got := tab2.doc.Buffer.String(); got != `{"a":1}` {
+		t.Fatalf("preview text %q", got)
+	}
+}
+
+func TestJSONWholeDocumentRestoresHighlight(t *testing.T) {
+	text := "[" + strings.Repeat("1,", 70_000) + "1]"
+	if len(text) <= maxHighlightLine {
+		t.Fatalf("test text is %d bytes, not a long line", len(text))
+	}
+	a, tab := jsonTab(t, text)
+	if tab.doc.Buffer.Language() != nil {
+		t.Fatal("a long single line is highlighted before formatting")
+	}
+	a.runTextTool(tab, toolJSONFormat)
+
+	if tab.doc.Buffer.Language() == nil {
+		t.Fatal("formatting did not bring the highlight back")
+	}
+}
+
+func TestJSONWholeDocumentWithoutSelection(t *testing.T) {
+	a, tab := toolTab(t, `{"a":1}`)
+	tab.state.SetSelections(editor.Selection{Anchor: 2, Head: 2})
+	a.runTextTool(tab, toolJSONFormat)
+
+	if got := tab.doc.Buffer.String(); got != `{"a":1}` {
+		t.Fatalf("a plain text document was formatted: %q", got)
+	}
+	if len(a.pendingToasts) != 1 || a.pendingToasts[0].Title != locales.TextToolNoSelection() {
+		t.Fatalf("toasts %+v", a.pendingToasts)
+	}
+}
+
+func TestToolsMenuJSONWholeDocument(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.json", `{"a":1}`))
+	tab := a.activeTab()
+
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+	if err := tt.Click(locales.ToolsMenu()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(locales.JsonGroup(), locales.JsonFormat()); err != nil {
+		t.Fatalf("JSON format is disabled without a selection: %v", err)
+	}
+	if got, want := tab.doc.Buffer.String(), "{\n  \"a\": 1\n}"; got != want {
+		t.Fatalf("text %q, want %q", got, want)
+	}
+}
+
+func TestToolsMenuJSONDisabledWithoutSelectionInPlainText(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", `{"a":1}`))
+
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+	if err := tt.Click(locales.ToolsMenu()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(locales.JsonGroup(), locales.JsonFormat()); err == nil {
+		t.Fatal("JSON format is enabled in a plain text document without a selection")
+	}
+	tt.CloseMenu()
+}
