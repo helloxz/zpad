@@ -775,26 +775,75 @@ h1 {
   text-align: center;
 }
 
-/* Release notes */
+/* Changelog */
 
-.changelog-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.2rem;
-}
-
-.changelog-head h2 {
-  margin: 0;
-  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
-  letter-spacing: -0.02em;
-}
-
-.changelog-head p {
-  margin: 0.35rem 0 0;
+.changelog-note {
+  display: inline-block;
+  margin: 1rem 0 0;
+  padding: 0.45rem 0.8rem;
+  border-left: 2px solid var(--accent-line);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
+}
+
+.changelog-links {
+  margin: 1.1rem 0 0;
+}
+
+.changelog-links-bottom {
+  margin-top: 1.6rem;
+}
+
+.changelog-body {
+  padding-top: 1.6rem;
+}
+
+.changelog-empty {
+  color: var(--muted);
+}
+
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 1.65rem;
+}
+
+.timeline-item + .timeline-item {
+  margin-top: 1rem;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1.6rem;
+  bottom: -1rem;
+  width: 2px;
+  background: var(--border);
+}
+
+.timeline-item:last-child::before {
+  display: none;
+}
+
+.timeline-item::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 1.35rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--bg);
 }
 
 .release {
@@ -806,6 +855,7 @@ h1 {
 
 .release-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem;
   margin-bottom: 0.9rem;
@@ -828,17 +878,95 @@ h1 {
   font-size: 0.86rem;
 }
 
+.badge-latest {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.release-link {
+  margin: 0.9rem 0 0;
+  font-size: 0.85rem;
+}
+
+.release-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
 .release-notes {
   font-size: 0.94rem;
 }
 
+.release-notes > :first-child {
+  margin-top: 0;
+}
+
+.release-notes > :last-child {
+  margin-bottom: 0;
+}
+
+.release-notes p {
+  margin: 0.5rem 0;
+}
+
+.release-notes ul,
+.release-notes ol {
+  margin: 0.4rem 0;
+  padding-left: 1.15rem;
+}
+
 .release-notes ul {
-  margin: 0;
-  padding-left: 1.1rem;
+  list-style: disc;
 }
 
 .release-notes li {
   margin: 0.25rem 0;
+}
+
+.release-notes li::marker {
+  color: var(--accent);
+}
+
+.release-notes h1,
+.release-notes h2,
+.release-notes h3,
+.release-notes h4 {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.release-notes a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.release-notes code {
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: var(--surface-hover);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+.release-notes pre {
+  overflow-x: auto;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  background: var(--surface-hover);
+}
+
+.release-notes pre code {
+  padding: 0;
+  background: none;
 }
 
 /* Download page */
@@ -1080,16 +1208,33 @@ h1 {
   .feature:hover {
     transform: none;
   }
-
-  .changelog-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 @media (max-width: 600px) {
   .gallery {
     grid-template-columns: 1fr;
+  }
+
+  .changelog-body {
+    padding-top: 1.6rem;
+  }
+
+  .timeline-item {
+    padding-left: 1.25rem;
+  }
+
+  .timeline-item::before {
+    left: 3px;
+  }
+
+  .timeline-item::after {
+    left: -1px;
+    width: 9px;
+    height: 9px;
+  }
+
+  .release {
+    padding: 1.2rem 1.15rem;
   }
 
   .lightbox img {

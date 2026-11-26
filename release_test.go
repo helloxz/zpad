@@ -261,6 +261,71 @@ func TestWebsiteReleaseSnapshot(t *testing.T) {
 	}
 }
 
+// The changelog page renders the ten most recent published releases from
+// GitHub, and falls back to this snapshot for local previews and a failed
+// fetch. It must stay a usable list, in the same order the page shows.
+func TestWebsiteReleasesSnapshot(t *testing.T) {
+	data, err := os.ReadFile("website/data/releases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var releases []struct {
+		TagName     string `json:"tag_name"`
+		PublishedAt string `json:"published_at"`
+		HTMLURL     string `json:"html_url"`
+		Prerelease  bool   `json:"prerelease"`
+	}
+	if err := json.Unmarshal(data, &releases); err != nil {
+		t.Fatal(err)
+	}
+	if len(releases) == 0 {
+		t.Fatal("the snapshot has no releases; refresh it from the releases API")
+	}
+	if len(releases) > 10 {
+		t.Errorf("the snapshot has %d releases, want at most 10", len(releases))
+	}
+
+	const prefix = "https://github.com/helloxz/zpad/releases/tag/"
+	seen := map[string]bool{}
+	var previous time.Time
+	for i, release := range releases {
+		if !strings.HasPrefix(release.TagName, "v") {
+			t.Errorf("tag_name %q has no v prefix", release.TagName)
+		}
+		if seen[release.TagName] {
+			t.Errorf("release %q is listed twice", release.TagName)
+		}
+		seen[release.TagName] = true
+		published, err := time.Parse(time.RFC3339, release.PublishedAt)
+		if err != nil {
+			t.Errorf("published_at %q is not RFC 3339: %v", release.PublishedAt, err)
+		} else if i > 0 && previous.Before(published) {
+			t.Errorf("release %q is newer than the one before it", release.TagName)
+		}
+		previous = published
+		if release.Prerelease {
+			t.Errorf("release %q is a pre-release; the page skips those", release.TagName)
+		}
+		if !strings.HasPrefix(release.HTMLURL, prefix) {
+			t.Errorf("release %q has no GitHub release URL", release.TagName)
+		}
+	}
+
+	latestData, err := os.ReadFile("website/data/release.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var latest struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.Unmarshal(latestData, &latest); err != nil {
+		t.Fatal(err)
+	}
+	if releases[0].TagName != latest.TagName {
+		t.Errorf("the changelog starts at %q but release.json names %q", releases[0].TagName, latest.TagName)
+	}
+}
+
 func TestAppIconSize(t *testing.T) {
 	f, err := os.Open("resources/icon.png")
 	if err != nil {

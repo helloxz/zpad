@@ -9,9 +9,8 @@
       <a class="hide-sm" href="{{ site.Home.RelPermalink }}#features">{{ i18n "nav_features" }}</a>
       <a class="hide-sm" href="{{ site.Home.RelPermalink }}#compare">{{ i18n "nav_compare" }}</a>
       <a href="{{ "download/" | relLangURL }}">{{ i18n "nav_download" }}</a>
-      {{- with partialCached "release.html" . "latest" }}
-      <a class="hide-sm" href="{{ site.Home.RelPermalink }}#changelog">{{ i18n "nav_changelog" }}</a>
-      {{- end }}
+      <a class="hide-sm" href="{{ site.Home.RelPermalink }}#faq">{{ i18n "nav_faq" }}</a>
+      <a class="hide-sm" href="{{ "changelog/" | relLangURL }}">{{ i18n "nav_changelog" }}</a>
       <a href="{{ site.Params.issues }}" rel="nofollow noopener">{{ i18n "nav_feedback" }}</a>
       <a href="{{ site.Params.github }}" rel="nofollow noopener">
         {{ partial "icon.html" "github" }}

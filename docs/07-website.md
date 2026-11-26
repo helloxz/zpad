@@ -1,6 +1,6 @@
 # 官网（zpad.xphub.dev）
 
-ZPad 的产品官网：首屏、功能、截图、常见问题、下载。源码在 `website/`，用 Hugo 生成静态文件，部署在 Cloudflare Pages。
+ZPad 的产品官网：首屏、功能、截图、常见问题、更新日志与下载。源码在 `website/`，用 Hugo 生成静态文件，部署在 Cloudflare Pages。
 
 - 线上地址：<https://zpad.xphub.dev>
 - 默认语言中文（根路径），英文在 `/en/`
@@ -9,7 +9,7 @@ ZPad 的产品官网：首屏、功能、截图、常见问题、下载。源码
 
 ## 范围
 
-首页六段：首屏（截图 + 下载 / GitHub 按钮）、六个功能点、与 Notepad++ / Sublime Text 的对比表、六张截图（两列，点击放大）、常见问题、最近更新。导航是 功能 / 对比 / 下载 / 更新 / 反馈 / GitHub（窄屏只留 下载 / 更新 / 反馈 / GitHub），反馈直接进 GitHub 新建 issue；反馈与 GitHub 两个外链带 `rel="nofollow noopener"`，不外链权重。下载页按平台列安装包，macOS / Windows / Linux 各两个按钮。页脚只有两行内容：左侧 `© <年份> ZPad. All rights reserved.`（年份取构建时间），右侧隐私政策链接；不再放许可、源码、构建来源。另有 `/privacy/`（英文 `/en/privacy/`）隐私政策，只在页脚右侧链接。不做的：博客、文档站、评论区、账号体系。
+首页五段：首屏（截图 + 下载 / GitHub 按钮）、六个功能点、与 Notepad++ / Sublime Text 的对比表、六张截图（两列，点击放大）、常见问题（不再放最近更新）。导航是 功能 / 对比 / 下载 / 常见问题 / 更新日志 / 反馈 / GitHub（窄屏只留 下载 / 反馈 / GitHub），「常见问题」锚到首页 `#faq`，「更新日志」进独立页面；反馈直接进 GitHub 新建 issue，反馈与 GitHub 两个外链带 `rel="nofollow noopener"`，不外链权重。下载页按平台列安装包，macOS / Windows / Linux 各两个按钮。页脚只有两行内容：左侧 `© <年份> ZPad. All rights reserved.`（年份取构建时间），右侧隐私政策链接；不再放许可、源码、构建来源。另有 `/changelog/`（英文 `/en/changelog/`）更新日志，构建时从 GitHub Releases 取最近 10 个正式版本；英文页正文仍是 GitHub 原文，页首说明发布说明为中文；顶部与底部的「全部版本」外链带 `target="_blank"` 与 `rel="nofollow noopener"`。`/privacy/`（英文 `/en/privacy/`）隐私政策只在页脚右侧链接。不做的：博客、文档站、评论区、账号体系。
 
 `docs/` 下的开发文档不对外，官网只链到 GitHub。
 
@@ -33,6 +33,7 @@ website/
 ├── hugo.toml                  # 站点、语言、输出设置
 ├── content/
 │   ├── _index.md|.en.md       # 首页文案：功能点、截图说明、FAQ
+│   ├── changelog.md|.en.md    # 更新日志页文案（layout: changelog）
 │   ├── download.md|.en.md     # 下载页文案与安装说明
 │   └── privacy.md|.en.md      # 隐私政策，front matter 带 updated
 ├── i18n/{zh,en}.toml          # 模板里复用的 UI 字符串
@@ -40,15 +41,18 @@ website/
 │   ├── baseof.html            # 含截图灯箱 <dialog>
 │   ├── index.html             # 首页
 │   ├── index.redirects        # 由版本数据生成 _redirects
+│   ├── _default/changelog.html # 更新日志（layout: changelog）
 │   ├── _default/download.html # 下载页（layout: download）
 │   ├── _default/single.html   # 普通正文页（隐私政策）
 │   ├── robots.txt
-│   └── partials/{head,header,footer,icon,shot,release,release-assets}.html
+│   └── partials/{head,header,footer,icon,shot,release,releases,release-assets}.html
 ├── assets/
 │   ├── css/ js/
 │   ├── icon.png               # resources/icon.png 裁掉留白的副本
 │   └── screenshots/*.png      # 截图原图，Hugo 构建时转 WebP
-└── data/release.json          # 最新 release 快照：构建失败时回退，也供本地预览
+└── data/
+    ├── release.json           # 最新 release 快照：首屏 / 下载页回退与本地预览
+    └── releases.json          # 最近 10 个正式版本快照：更新日志回退与本地预览
 ```
 
 ## 多语言
@@ -96,23 +100,30 @@ cp /tmp/shots/*.png website/assets/screenshots/     # 先按需缩小
 
 README 的截图直接引用 `website/assets/screenshots/` 下的 `split`、`split-dark`、`settings`、`settings-dark`、`preview`、`search-dark`，重截后自动跟着更新。
 
-## 下载数据
+## 发布数据
 
-版本号、下载地址、文件大小和首页「最近更新」都不再手写，也没有 CI 提交：
+版本号、下载地址、文件大小和更新日志都不再手写，也没有 CI 提交：
 
-- `layouts/partials/release.html` 在**生产构建**时向 `https://api.github.com/repos/helloxz/zpad/releases/latest` 取最新 release，`transform.Unmarshal` 后直接给模板使用；`partialCached` 保证一次构建只请求一次。
-- 缓存键带 `now.Unix`，所以 CF 重建不会从 Hugo 的远程缓存拿到上一版；每次构建都是当下最新。
-- `hugo server` 是 development 环境，不请求 GitHub，直接读 `website/data/release.json` 快照；`hugo --minify` 是 production，会真实请求。
-- 请求失败（断网、限流、GitHub 不可达）输出 `WARN latest release: ...` 并回退到同一份快照，构建继续。只有快照也没有数据时，胶囊、最近更新和下载按钮才不渲染，导航「更新」也会隐藏。
+- `layouts/partials/release.html` 在**生产构建**时向 `https://api.github.com/repos/helloxz/zpad/releases/latest` 取最新 release，给首屏胶囊、下载页和下载短链用；`partialCached` 保证一次构建只请求一次。
+- `layouts/partials/releases.html` 向 `https://api.github.com/repos/helloxz/zpad/releases?per_page=30` 取列表，过滤 `prerelease` 与 `draft` 后取前 10 条，给 `/changelog/` 用。
+- 两个 partial 的缓存键都带 `now.Unix`，所以 CF 重建不会从 Hugo 的远程缓存拿到上一版；每次构建都是当下数据。
+- `hugo server` 是 development 环境，不请求 GitHub，分别读 `website/data/release.json` 和 `website/data/releases.json` 快照；`hugo --minify` 是 production，会真实请求两次。
+- 任一请求失败（断网、限流、GitHub 不可达）输出 `WARN ...` 并回退到对应快照，构建继续。快照也没有数据时，胶囊、下载按钮和更新日志列表不渲染，更新日志页显示空状态；导航「更新日志」始终在。
 
-发布后到 CF Pages → Deployments → **Retry deployment**（或 Create deployment，选 `main`）。构建时取最新 release，官网跟着更新。这一步是手动的；忘了官网就停在上一版。仓库里不会出现 bot commit。
+发布后到 CF Pages → Deployments → **Retry deployment**（或 Create deployment，选 `main`）。构建时取最新 release，首屏、下载页和更新日志一起更新。这一步是手动的；忘了官网就停在上一版。仓库里不会出现 bot commit。
 
-`website/data/release.json` 是快照，模板只用到 GitHub API 的 `tag_name`、`published_at`、`html_url`、`body` 和 `assets[].{name,size,browser_download_url}`；快照可以保留整份 API 响应，也可以只留这些字段。平时不用手改，本地要预览最新版本时刷新一次：
+`website/data/release.json` 是首屏 / 下载页快照，模板只用到 GitHub API 的 `tag_name`、`published_at`、`html_url`、`body` 和 `assets[].{name,size,browser_download_url}`；`website/data/releases.json` 是更新日志快照，只保留 `tag_name`、`published_at`、`html_url`、`body`、`prerelease`。平时不用手改，本地要预览最新版本时用 `jq` 刷新两份（两份快照的第一条要保持是同一个版本）：
 
 ```sh
 curl -fsSL -H 'Accept: application/vnd.github+json' \
   https://api.github.com/repos/helloxz/zpad/releases/latest \
+  | jq '{tag_name, published_at, html_url, body, assets: [.assets[] | {name, size, browser_download_url}]}' \
   > website/data/release.json
+
+curl -fsSL -H 'Accept: application/vnd.github+json' \
+  'https://api.github.com/repos/helloxz/zpad/releases?per_page=30' \
+  | jq '[.[] | select(.prerelease == false and .draft == false) | {tag_name, published_at, html_url, body, prerelease: false}][0:10]' \
+  > website/data/releases.json
 ```
 
 下载地址和大小从 `assets` 里按文件名分类（`release-assets.html`），所以 `.delta`、`update-*.json`、`install.*` 不会出现在下载页。下载页只给 deb / rpm 两个按钮（各平台都两个，排版对齐）；tar.gz 不进按钮，一条 `/download/linux-tar` 短链和安装说明里的 `install.sh` 一行命令都靠它。
@@ -129,7 +140,7 @@ curl -fsSL -H 'Accept: application/vnd.github+json' \
 /download/linux-tar    → 最新 Linux tar.gz
 ```
 
-GitHub API 匿名限额是每 IP 每小时 60 次，每次构建只请求一次；CF 的构建 IP 可能共享，真被限流时可以在 CF Pages 的环境变量里放一个只读 `GITHUB_TOKEN`，`release.html` 会自动加上 `Authorization`（`hugo.toml` 的 `security.funcs.getenv` 已放行）。发布成 draft 或 pre-release 时 `/releases/latest` 不会返回它，构建会继续用上一版，所以仍要发布为 latest 并等产物传完。
+GitHub API 匿名限额是每 IP 每小时 60 次，每次构建请求两次（latest + releases 列表）；CF 的构建 IP 可能共享，真被限流时可以在 CF Pages 的环境变量里放一个只读 `GITHUB_TOKEN`，两个 partial 都会自动加上 `Authorization`（`hugo.toml` 的 `security.funcs.getenv` 已放行）。发布成 draft 或 pre-release 时 `/releases/latest` 不会返回它，列表也会被过滤掉，构建会继续用快照，所以仍要发布为 latest 并等产物传完。
 
 ## 部署（Cloudflare Pages）
 
@@ -170,11 +181,11 @@ GitHub API 匿名限额是每 IP 每小时 60 次，每次构建只请求一次�
 
 ```sh
 brew install hugo                  # 0.170.1
-cd website && hugo server          # http://localhost:1313/，development，用 data/release.json 快照
-hugo --minify                      # production，会请求 GitHub 取最新 release，产出 website/public
+cd website && hugo server          # http://localhost:1313/，development，用 data/release.json 与 data/releases.json 快照
+hugo --minify                      # production，会请求 GitHub 取最新 release 与最近版本，产出 website/public
 ```
 
-`hugo server` 不请求 GitHub，避免边改边触发 API 限额；要看最新版本先执行上面的 `curl` 刷新快照。只在 `website/` 下改，`go test ./...` 不会碰它；`release_test.go` 会检查快照结构。
+`hugo server` 不请求 GitHub，避免边改边触发 API 限额；要看最新版本先执行上面的 `jq` 命令刷新两份快照。只在 `website/` 下改，`go test ./...` 不会碰它；`release_test.go` 会检查两份快照的结构和第一条版本是否一致。
 
 ## 验收清单
 
@@ -182,18 +193,23 @@ hugo --minify                      # production，会请求 GitHub 取最新 rel
 - [ ] 语言切换在首页和下载页都能回到对应译文
 - [ ] 亮 / 暗切换后页面配色跟着换，刷新后保持；首屏仍是 GitHub Light，悬停淡入 One Dark
 - [ ] 截图区六张、两列排布，点击后放大，按钮在图片下方居中，Esc / 遮罩 / 方向键可用
-- [ ] 常见问题折叠展开正常，内容与隐私表述一致
+- [ ] 常见问题折叠展开正常，内容与隐私表述一致；新增「可以替代 VS Code、Zed 吗」中英各一条
+- [ ] 顶部「常见问题」锚到首页 `#faq`，「更新日志」进入对应语言页面
 - [ ] 对比表中英两种语言各 8 行，ZPad 列带底色高亮；手机（390px）下每行改成一张卡片，页面不横向滚动
-- [ ] 手机（390px）下导航、卡片、按钮、截图不溢出，截图单列
+- [ ] 手机（390px）下导航、卡片、按钮、截图不溢出，截图单列；新增导航项按 `.hide-sm` 隐藏
 - [ ] 导航的「反馈」打开 GitHub 新建 issue 页面
 - [ ] 下载页每个平台两个按钮（Linux 为 deb / rpm）指向当前版本，安装说明含 sudo 与 `install.sh` 命令
 - [ ] `/download/mac-arm64` 302 到当前版本 dmg，`/download/linux` 302 到当前版本 deb
-- [ ] 构建时取到最新 release：首屏胶囊、下载页版本 / 地址 / 大小、首页最近更新都来自它
-- [ ] GitHub API 不可用时构建回退到 `data/release.json` 快照并有 warning，站点仍能部署
+- [ ] 构建时取到最新 release：首屏胶囊、下载页版本 / 地址 / 大小、更新日志都来自它
+- [ ] `/changelog/` 与 `/en/changelog/` 各显示最近 10 个正式版本，按时间倒序，第一条带「最新」标记；超过 10 条不显示
+- [ ] 更新日志页顶部 / 底部「全部版本」在新窗口打开，并带 `rel="nofollow noopener"`
+- [ ] 英文更新日志页顶部显示 `Release notes are published in Chinese.`，正文仍是 GitHub 原文
+- [ ] 首页底部不再有「最近更新」区块，`#changelog` 锚点不再被引用
+- [ ] GitHub API 不可用时构建回退到 `data/release.json` 与 `data/releases.json` 快照并有 warning，站点仍能部署
 - [ ] 发布后在 CF Pages 点 Retry deployment，官网随构建更新；`main` 上没有 bot commit
 - [ ] 页脚左侧版权（年份随构建更新）、右侧隐私政策链接，390px 下左右对齐且不换行
 - [ ] 隐私政策中英文各一页，亮暗两种主题下正文与页脚都正常
-- [ ] 无 JS 时页面仍可读、按钮仍可用（首屏固定 GitHub Light，悬停只靠 CSS；最近更新由构建生成；截图链接直接开原图）
+- [ ] 无 JS 时页面仍可读、按钮仍可用（首屏固定 GitHub Light，悬停只靠 CSS；更新日志由构建生成；截图链接直接开原图）
 
 ## 实现记录
 
@@ -208,4 +224,5 @@ hugo --minify                      # production，会请求 GitHub 取最新 rel
 - 2026-11-25：新增 `/privacy/` 与 `/en/privacy/` 页面（`content/privacy.md|.en.md` + `_default/single.html` + `.legal` 样式），页脚加隐私入口，首页 FAQ 链接过去；不加同意弹窗，因为统计脚本不写 cookie。
 - 2026-11-25：页面定名「隐私政策 / Privacy Policy」，正文扩到十段（应用、访问日志、统计字段、本地存储、第三方、共享与安全、未成年人、权利与联系、更新）；页脚改成左版权 / 右隐私政策，移除许可、源码、构建来源三项；对比表「Markdown 预览」的 ZPad 一列从「内置，源码 + 预览可分屏」收成「内置」，中英同步。
 - 2026-11-25：隐私政策去掉标题下那句 lead（页面直接从标题进日期）；顶部「反馈」与「GitHub」两个外链加 `nofollow`。
+- 2026-11-26：新增 `/changelog/` 与 `/en/changelog/` 更新日志页（`content/changelog.md|.en.md` + `_default/changelog.html` + `.timeline` 样式），构建时由 `partials/releases.html` 取 `releases?per_page=30`，过滤 prerelease 后展示最近 10 条；新增 `data/releases.json` 快照，`release_test.go` 校验结构与两份快照第一条一致。导航加「常见问题」锚到 `#faq`、「更新日志」进新页面；首页移除「最近更新」区块和 `changelog_*` front matter。英文页正文沿用 GitHub 原文并标注发布说明为中文。首页 FAQ 新增「ZPad 可以替代 VS Code、Zed 编辑器吗」中英各一条；更新日志顶部 / 底部「全部版本」外链加 `target="_blank"` 与 `rel="nofollow noopener"`。
 - 说明：`analyticsScript` 留空即不加载任何统计脚本。

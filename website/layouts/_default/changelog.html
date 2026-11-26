@@ -6,7 +6,7 @@
     {{- with .Params.lead }}<p class="lead">{{ . }}</p>{{ end }}
     {{- with .Params.note }}<p class="changelog-note">{{ . }}</p>{{ end }}
     <p class="changelog-links">
-      <a class="link" href="{{ site.Params.github }}/releases">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
+      <a class="link" href="{{ site.Params.github }}/releases" target="_blank" rel="nofollow noopener">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
     </p>
   </div>
 </section>
@@ -39,7 +39,7 @@
     <p class="changelog-empty">{{ i18n "no_releases" }}</p>
     {{- end }}
     <p class="changelog-links changelog-links-bottom">
-      <a class="link" href="{{ site.Params.github }}/releases">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
+      <a class="link" href="{{ site.Params.github }}/releases" target="_blank" rel="nofollow noopener">{{ i18n "all_releases" }}{{ partial "icon.html" "arrow" }}</a>
     </p>
   </div>
 </section>

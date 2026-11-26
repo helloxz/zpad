@@ -111,24 +111,4 @@
   </div>
 </section>
 
-{{- with $release }}
-<section class="section" id="changelog">
-  <div class="wrap">
-    <div class="changelog-head">
-      <div>
-        <h2>{{ $.Params.changelog_title }}</h2>
-        <p>{{ $.Params.changelog_lead }}</p>
-      </div>
-      <a class="link" href="{{ site.Params.github }}/releases">{{ $.Params.changelog_link }}{{ partial "icon.html" "arrow" }}</a>
-    </div>
-    <article class="release">
-      <div class="release-head">
-        <span class="version">{{ strings.TrimPrefix "v" .tag_name }}</span>
-        <time datetime="{{ .published_at }}">{{ time.AsTime .published_at | time.Format "2006-01-02" }}</time>
-      </div>
-      <div class="release-notes">{{ .body | markdownify }}</div>
-    </article>
-  </div>
-</section>
-{{- end }}
 {{ end }}

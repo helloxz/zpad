@@ -109,6 +109,8 @@ faq_title: "常见问题"
 faq:
   - q: "ZPad 收费吗？"
     a: "免费。以 AGPL-3.0 开源，源码和每个版本都在 GitHub 上。"
+  - q: "ZPad 可以替代 VS Code、Zed 编辑器吗？"
+    a: "不能，ZPad 是轻量编辑器，适合快速编辑文件、配置、日志和中小项目；VS Code / Zed 是带插件、调试、Git、AI 的完整开发平台。"
   - q: "会上传我的文件吗？"
     a: "不会。应用不联网也能正常使用，唯一的网络请求是向 GitHub 检查更新。"
   - q: "有统计或追踪吗？"
@@ -121,7 +123,4 @@ faq:
     a: "macOS 12 及以上、Windows 10 / 11（64 位）、Linux（x86_64，deb / rpm / tar.gz）。"
   - q: "为什么不支持插件、Git、AI？"
     a: "定位是一个纯粹的文本编辑器：启动够快、行为可预期。需要这些能力时，用更重的 IDE 更合适。"
-changelog_title: "最近更新"
-changelog_lead: "每次发布都会写在 GitHub Releases 里。"
-changelog_link: "全部版本"
 ---

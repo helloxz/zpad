@@ -109,6 +109,8 @@ faq_title: "Questions"
 faq:
   - q: "Is ZPad free?"
     a: "Yes. It is open source under AGPL-3.0; the source and every release are on GitHub."
+  - q: "Can ZPad replace VS Code or Zed?"
+    a: "No — ZPad is a lightweight editor for files, configs, logs and small projects, while VS Code and Zed are full development platforms with plugins, debugging, Git and AI."
   - q: "Does it upload my files?"
     a: "No. It works offline; the only network request is the update check against GitHub."
   - q: "Any tracking or analytics?"
@@ -121,7 +123,4 @@ faq:
     a: "macOS 12 or later, Windows 10 / 11 (64-bit), and Linux (x86_64, deb / rpm / tar.gz)."
   - q: "Why no plugins, Git or AI?"
     a: "ZPad is a plain text editor on purpose: fast to start, predictable to use. A heavier IDE fits those jobs better."
-changelog_title: "Latest release"
-changelog_lead: "Every release is written up on GitHub."
-changelog_link: "All releases"
 ---
