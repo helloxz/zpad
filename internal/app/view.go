@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/helloxz/zpad/internal/encoding"
+	"github.com/helloxz/zpad/internal/files"
 	"github.com/helloxz/zpad/internal/theme"
 	"github.com/helloxz/zpad/internal/vim"
 	"github.com/helloxz/zpad/locales"
@@ -218,12 +219,15 @@ func (a *App) sidebar(c *ui.Context, t *ui.Theme) {
 		ui.Row(c).Height(38).Padding(0, 8).AlignItems(ui.Center).Gap(2).Children(func() {
 			a.sidebarTabButton(c, t, locales.OpenFiles(), sidebarFiles)
 			a.sidebarTabButton(c, t, locales.Workspace(), sidebarWorkspace)
+			a.sidebarTabButton(c, t, locales.Home(), sidebarHome)
 			ui.Spacer(c)
 			a.sidebarMenuButton(c, t)
 		})
 		switch a.sidebarTab {
 		case sidebarWorkspace:
-			a.workspacePanel(c, t)
+			a.treePanel(c, t, a.workspacePane())
+		case sidebarHome:
+			a.treePanel(c, t, a.homePane())
 		default:
 			a.openFilesPanel(c, t, theme.FileTree(t))
 		}
@@ -247,11 +251,19 @@ func (a *App) sidebarTabButton(c *ui.Context, t *ui.Theme, label string, tab int
 	if active {
 		b.BorderWidth(0, 0, 2, 0).BorderColor(t.Accent)
 	}
-	if tab == sidebarWorkspace && a.root != "" {
-		b.Tooltip(a.root)
+	if tab == sidebarWorkspace {
+		pathTooltipBelow(c, t, b, a.root)
+	}
+	if tab == sidebarHome {
+		pathTooltipBelow(c, t, b, a.dirRoot)
 	}
 	if b.Clicked() && !active {
 		a.sidebarTab = tab
+		if tab == sidebarHome && a.dirTree != nil {
+			// Other programs change the home folder while the tab is away.
+			a.dirTree.Refresh()
+			a.dirGeneration++
+		}
 		a.update()
 	}
 }
@@ -267,8 +279,12 @@ func (a *App) sidebarMenuButton(c *ui.Context, t *ui.Theme) {
 		ui.Text(c, "⋯").FontSize(14).TextColor(t.TextMuted)
 	})
 	menu.Menu(func(m *ui.Menu) {
-		if a.sidebarTab == sidebarWorkspace {
-			if m.Item(locales.Refresh()).Disabled(a.tree == nil).Chosen() {
+		if a.sidebarTab == sidebarWorkspace || a.sidebarTab == sidebarHome {
+			tree := a.tree
+			if a.sidebarTab == sidebarHome {
+				tree = a.dirTree
+			}
+			if m.Item(locales.Refresh()).Disabled(tree == nil).Chosen() {
 				a.refreshTree()
 			}
 			if m.Item(locales.ShowHidden()).Checked(a.Settings.ShowHidden).Chosen() {
@@ -277,7 +293,7 @@ func (a *App) sidebarMenuButton(c *ui.Context, t *ui.Theme) {
 			m.Separator()
 			// The workspace has a close of its own: without it the only
 			// way back is another folder or closing the whole sidebar.
-			if a.root != "" {
+			if a.sidebarTab == sidebarWorkspace && a.root != "" {
 				if m.Item(locales.CloseWorkspace()).Chosen() {
 					a.closeWorkspace()
 				}
@@ -383,13 +399,29 @@ func (a *App) tabTooltip(tab *Tab) string {
 // always goes above its anchor, centered, so this places the tip itself and
 // repeats the look of the theme's tooltip, wider to hold a path.
 func pathTooltip(c *ui.Context, t *ui.Theme, anchor ui.Element, text string) {
+	pathTip(c, t, anchor, text, false)
+}
+
+// pathTooltipBelow shows text under anchor, left edges aligned, as the
+// sidebar's tabs need: above them is the toolbar, and beside them the
+// other tabs.
+func pathTooltipBelow(c *ui.Context, t *ui.Theme, anchor ui.Element, text string) {
+	pathTip(c, t, anchor, text, true)
+}
+
+// pathTip places a path's tip beside anchor's right edge or under it.
+func pathTip(c *ui.Context, t *ui.Theme, anchor ui.Element, text string, below bool) {
 	if text == "" {
 		return
 	}
 	fill, ink := theme.Inverse(t)
 	ui.TooltipBase(c, anchor, func(tip ui.Element) {
-		tip.AttachTo(anchor, ui.AnchorEnd, ui.AnchorStart).MarginStart(6).
-			MaxWidth(420).Padding(t.Space(1.25), t.Space(2)).
+		if below {
+			tip.AttachTo(anchor, ui.AnchorBottomLeft, ui.AnchorTopLeft).Margin(t.Space(0.75), 0, 0, 0)
+		} else {
+			tip.AttachTo(anchor, ui.AnchorEnd, ui.AnchorStart).MarginStart(6)
+		}
+		tip.MaxWidth(420).Padding(t.Space(1.25), t.Space(2)).
 			Radius(t.Space(1.25)).Background(fill).TextColor(ink).
 			FontSize(t.FontSize-1).
 			Shadow(0, 2, 8, 0, ui.RGBA(0, 0, 0, 0.2))
@@ -424,9 +456,51 @@ func tooltipBelow(c *ui.Context, t *ui.Theme, anchor ui.Element, text string) {
 	anchor.Description(text)
 }
 
-func (a *App) workspacePanel(c *ui.Context, t *ui.Theme) {
-	if a.tree == nil {
+// treePane is one of the sidebar's trees and where its state lives. The
+// two trees differ in what their rows offer: the Home tab deletes single
+// files but never a whole folder.
+type treePane struct {
+	tree       *files.Tree
+	state      *ui.OutlineState[string]
+	selected   *int
+	generation *uint64
+	// deleteFiles and deleteFolders say which rows offer Delete.
+	deleteFiles   bool
+	deleteFolders bool
+	// home says the tree is the Home tab's, whose folder rows can open the
+	// workspace there.
+	home bool
+}
+
+func (a *App) workspacePane() treePane {
+	return treePane{
+		tree:          a.tree,
+		state:         &a.treeState,
+		selected:      &a.treeSelected,
+		generation:    &a.treeGeneration,
+		deleteFiles:   true,
+		deleteFolders: true,
+	}
+}
+
+func (a *App) homePane() treePane {
+	return treePane{
+		tree:        a.dirTree,
+		state:       &a.dirState,
+		selected:    &a.dirSelected,
+		generation:  &a.dirGeneration,
+		deleteFiles: true,
+		home:        true,
+	}
+}
+
+func (a *App) treePanel(c *ui.Context, t *ui.Theme, tp treePane) {
+	if tp.tree == nil || tp.tree.Root() == "" {
 		ui.Column(c).Grow(1).Center().Gap(8).Padding(16).Children(func() {
+			if tp.home {
+				ui.Text(c, locales.HomeUnavailable()).FontSize(12).TextColor(t.TextMuted)
+				return
+			}
 			ui.Text(c, locales.NoFolder()).FontSize(12).TextColor(t.TextMuted)
 			if ui.Button(c, locales.OpenFolder()).Cursor(ui.CursorPointer).Clicked() {
 				a.OpenFolderDialog()
@@ -434,14 +508,14 @@ func (a *App) workspacePanel(c *ui.Context, t *ui.Theme) {
 		})
 		return
 	}
+	root := tp.tree.Root()
 	ui.Row(c).Height(26).Padding(0, 8).AlignItems(ui.Center).Gap(6).Children(func() {
 		ui.Icon(c, iconFolder).FontSize(13).TextColor(t.TextMuted)
-		ui.Text(c, a.tree.Name()).FontSize(12).Bold().SingleLine()
+		ui.Text(c, tp.tree.Name()).FontSize(12).Bold().SingleLine()
 	})
-	root := a.tree.Root()
 	tree := ui.Themed(c, theme.FileTree(t)).Grow(1).Background(ui.Transparent)
 	// The rows have menus of their own, so this one opens on the space
-	// below them and creates at the top of the workspace.
+	// below them and creates at the root.
 	tree.PopoverMenu(func(m *ui.Menu) {
 		if m.Item(locales.NewFile()).Chosen() {
 			a.beginCreate(root, false)
@@ -451,29 +525,29 @@ func (a *App) workspacePanel(c *ui.Context, t *ui.Theme) {
 		}
 	}, sidebarMenuOptions(t))
 	tree.Children(func() {
-		a.treeState.List.Selected = &a.treeSelected
-		a.treeState.Generation = a.treeGeneration
+		tp.state.List.Selected = tp.selected
+		tp.state.Generation = *tp.generation
 		// treeRow draws the indentation and the arrow itself, inside the
 		// row, so that the whole row is one click target; an outline row
 		// would keep them outside its content and a click there would only
 		// choose the row.
-		a.treeState.Prefix = func(ui.OutlineRow) {}
-		ui.Outline(c, &a.treeState, a.tree.Roots(), a.tree.Children, func(path string) {
-			a.treeRow(c, t, path)
+		tp.state.Prefix = func(ui.OutlineRow) {}
+		ui.Outline(c, tp.state, tp.tree.Roots(), tp.tree.Children, func(path string) {
+			a.treeRow(c, t, tp, path)
 		}).Grow(1)
 	})
 }
 
-// treeRow draws a row of the workspace tree whole: its indentation, its
-// arrow and its name all sit inside the row, so a click anywhere in it,
-// from the left edge to the right, opens the file or the folder.
-func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
-	isDir := a.tree.IsDir(path)
-	open := a.treeState.Open.Has(path)
+// treeRow draws a row of a sidebar tree whole: its indentation, its arrow
+// and its name all sit inside the row, so a click anywhere in it, from the
+// left edge to the right, opens the file or the folder.
+func (a *App) treeRow(c *ui.Context, t *ui.Theme, tp treePane, path string) {
+	isDir := tp.tree.IsDir(path)
+	open := tp.state.Open.Has(path)
 	row := ui.Row(c).FillWidth().Padding(t.Space(1), t.Space(2)).Gap(t.Space(1)).
 		AlignItems(ui.Center).Cursor(ui.CursorPointer)
 	row.Children(func() {
-		if depth := a.treeDepth(path); depth > 0 {
+		if depth := treeDepthIn(tp.tree.Root(), path); depth > 0 {
 			ui.Box(c).Width(float32(depth) * t.Space(4)).Shrink(0)
 		}
 		arrow := ui.Box(c).Size(t.Space(4), t.Space(4)).Shrink(0).Center()
@@ -499,13 +573,19 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 	}
 	pathTooltip(c, t, row, path)
 	row.PopoverMenu(func(m *ui.Menu) {
-		a.selectTreePath(path)
+		a.selectTreePath(tp, path)
 		if isDir {
 			if m.Item(locales.NewFile()).Chosen() {
 				a.beginCreate(path, false)
 			}
 			if m.Item(locales.NewFolder()).Chosen() {
 				a.beginCreate(path, true)
+			}
+			if tp.home {
+				m.Separator()
+				if m.Item(locales.OpenAsWorkspace()).Chosen() {
+					a.setWorkspace(path)
+				}
 			}
 			m.Separator()
 		} else if m.Item(locales.OpenInOtherPane()).Chosen() {
@@ -514,9 +594,11 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 		if m.Item(locales.Rename()).Chosen() {
 			a.beginRename(path)
 		}
-		m.Separator()
-		if m.Item(locales.Delete()).Danger().Chosen() {
-			a.confirmDelete(path, isDir)
+		if (isDir && tp.deleteFolders) || (!isDir && tp.deleteFiles) {
+			m.Separator()
+			if m.Item(locales.Delete()).Danger().Chosen() {
+				a.confirmDelete(path, isDir)
+			}
 		}
 	}, sidebarMenuOptions(t))
 	switch {
@@ -534,15 +616,17 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 	case row.Clicked():
 		// The whole row is this view's own, so the outline's row sees no
 		// click and the choice is made here too.
-		a.selectTreePath(path)
+		a.selectTreePath(tp, path)
 		a.update()
 		switch {
 		case !isDir:
 			a.openPreview(path)
-		case row.ClickModifiers()&ui.Alt != 0:
-			a.toggleFolderAll(path)
+		case !tp.home && row.ClickModifiers()&ui.Alt != 0:
+			// The Home tree never opens every folder below one at once: its
+			// root is the whole home directory.
+			a.toggleFolderAll(tp, path)
 		default:
-			a.toggleFolder(path)
+			a.toggleFolder(tp, path)
 		}
 	}
 }
@@ -550,7 +634,16 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 // treeDepth is how deep path sits in the workspace: 0 for an entry at the
 // workspace root, matching the indentation the rows draw.
 func (a *App) treeDepth(path string) int {
-	root := a.tree.Root()
+	root := ""
+	if a.tree != nil {
+		root = a.tree.Root()
+	}
+	return treeDepthIn(root, path)
+}
+
+// treeDepthIn is how deep path sits under root, the indentation the rows
+// draw.
+func treeDepthIn(root, path string) int {
 	if root == "" || len(path) <= len(root) || !strings.HasPrefix(path, root) {
 		return 0
 	}
@@ -575,17 +668,17 @@ func (a *App) treeDepth(path string) int {
 
 // toggleFolderAll opens path with every folder inside it, or closes them
 // all, as Option-clicking a tree row does.
-func (a *App) toggleFolderAll(path string) {
-	open := !a.treeState.Open.Has(path)
+func (a *App) toggleFolderAll(tp treePane, path string) {
+	open := !tp.state.Open.Has(path)
 	var walk func(dir string)
 	walk = func(dir string) {
 		if open {
-			a.treeState.Open.Add(dir)
+			tp.state.Open.Add(dir)
 		} else {
-			a.treeState.Open.Remove(dir)
+			tp.state.Open.Remove(dir)
 		}
-		for _, child := range a.tree.Children(dir) {
-			if a.tree.IsDir(child) {
+		for _, child := range tp.tree.Children(dir) {
+			if tp.tree.IsDir(child) {
 				walk(child)
 			}
 		}
@@ -625,11 +718,11 @@ func sidebarMenuOptions(t *ui.Theme) ui.PopoverMenuOptions {
 	}
 }
 
-func (a *App) toggleFolder(path string) {
-	if a.treeState.Open.Has(path) {
-		a.treeState.Open.Remove(path)
+func (a *App) toggleFolder(tp treePane, path string) {
+	if tp.state.Open.Has(path) {
+		tp.state.Open.Remove(path)
 	} else {
-		a.treeState.Open.Add(path)
+		tp.state.Open.Add(path)
 	}
 	a.update()
 }

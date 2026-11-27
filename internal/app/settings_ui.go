@@ -532,6 +532,10 @@ func (a *App) restoreDefaults() {
 		a.tree.SetShowHidden(a.Settings.ShowHidden)
 		a.treeGeneration++
 	}
+	if a.dirTree != nil {
+		a.dirTree.SetShowHidden(a.Settings.ShowHidden)
+		a.dirGeneration++
+	}
 	a.saveSettings()
 	SetThemeSource(theme.SystemID)
 	if a.running {

@@ -2108,6 +2108,16 @@ func (msgs Messages) Workspace() string {
 	return Catalog.Format(msgs.locale, "workspace", nil)
 }
 
+// Home says "Home"
+// in the language the app shows.
+func Home() string { return In(i18n.Locale()).Home() }
+
+// Home says "Home"
+// in the language of msgs.
+func (msgs Messages) Home() string {
+	return Catalog.Format(msgs.locale, "home", nil)
+}
+
 // NoFolder says "No folder open"
 // in the language the app shows.
 func NoFolder() string { return In(i18n.Locale()).NoFolder() }
@@ -2116,6 +2126,26 @@ func NoFolder() string { return In(i18n.Locale()).NoFolder() }
 // in the language of msgs.
 func (msgs Messages) NoFolder() string {
 	return Catalog.Format(msgs.locale, "noFolder", nil)
+}
+
+// HomeUnavailable says "The home folder could not be read"
+// in the language the app shows.
+func HomeUnavailable() string { return In(i18n.Locale()).HomeUnavailable() }
+
+// HomeUnavailable says "The home folder could not be read"
+// in the language of msgs.
+func (msgs Messages) HomeUnavailable() string {
+	return Catalog.Format(msgs.locale, "homeUnavailable", nil)
+}
+
+// OpenAsWorkspace says "Open as Workspace"
+// in the language the app shows.
+func OpenAsWorkspace() string { return In(i18n.Locale()).OpenAsWorkspace() }
+
+// OpenAsWorkspace says "Open as Workspace"
+// in the language of msgs.
+func (msgs Messages) OpenAsWorkspace() string {
+	return Catalog.Format(msgs.locale, "openAsWorkspace", nil)
 }
 
 // OpenInOtherPane says "Open in Other Pane"

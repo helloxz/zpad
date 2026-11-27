@@ -3,6 +3,7 @@ package app
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -96,6 +97,7 @@ func (p *Pane) activeTab() *Tab {
 const (
 	sidebarFiles = iota
 	sidebarWorkspace
+	sidebarHome
 )
 
 // Version is the version the status bar and the About dialog show. main
@@ -143,6 +145,13 @@ type App struct {
 	treeSelected   int
 	treeGeneration uint64
 	sidebarTab     int
+	// The Home tab's tree, rooted at the user's home folder: its own
+	// expansion and choice so that it never shares the workspace's.
+	dirRoot       string
+	dirTree       *files.Tree
+	dirState      ui.OutlineState[string]
+	dirSelected   int
+	dirGeneration uint64
 
 	left       Pane
 	right      Pane
@@ -308,7 +317,7 @@ type App struct {
 func New(s settings.Settings, settingsDir string) *App {
 	s.Theme = theme.Normalize(s.Theme)
 	def := theme.Resolve(s.Theme, false)
-	return &App{
+	a := &App{
 		Settings:      s,
 		SettingsDir:   settingsDir,
 		LogPath:       filepath.Join(settingsDir, LogName),
@@ -326,6 +335,32 @@ func New(s settings.Settings, settingsDir string) *App {
 		pinPending:    map[string]bool{},
 		checkUpdates:  updater.CheckForUpdates,
 	}
+	a.setHomeRoot(homeRoot())
+	return a
+}
+
+// homeRoot is the folder the Home tab starts at: the user's own, or the
+// working directory where no home is known.
+func homeRoot() string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return home
+	}
+	dir, _ := os.Getwd()
+	return dir
+}
+
+// setHomeRoot points the Home tab at root, reading none of it until the
+// tab is shown. An empty root leaves the tab with nothing to show.
+func (a *App) setHomeRoot(root string) {
+	a.dirRoot = root
+	if root == "" {
+		a.dirTree = nil
+	} else {
+		a.dirTree = files.New(root, a.Settings.ShowHidden)
+	}
+	a.dirState = ui.OutlineState[string]{}
+	a.dirSelected = -1
+	a.dirGeneration++
 }
 
 // SetThemeSource applies a theme's appearance to the native window
@@ -1121,10 +1156,20 @@ func (a *App) toggleSidebar() {
 }
 
 func (a *App) refreshTree() {
+	a.refreshTrees()
+	a.update()
+}
+
+// refreshTrees forgets what both sidebar trees read, so that their next
+// frames show the files as they are now.
+func (a *App) refreshTrees() {
 	if a.tree != nil {
 		a.tree.Refresh()
 		a.treeGeneration++
-		a.update()
+	}
+	if a.dirTree != nil {
+		a.dirTree.Refresh()
+		a.dirGeneration++
 	}
 }
 
@@ -1133,6 +1178,10 @@ func (a *App) toggleHidden() {
 	if a.tree != nil {
 		a.tree.SetShowHidden(a.Settings.ShowHidden)
 		a.treeGeneration++
+	}
+	if a.dirTree != nil {
+		a.dirTree.SetShowHidden(a.Settings.ShowHidden)
+		a.dirGeneration++
 	}
 	a.saveSettings()
 	a.update()

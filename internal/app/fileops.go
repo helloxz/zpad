@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 	"github.com/helloxz/zpad/locales"
 )
 
@@ -28,11 +29,11 @@ func rebasePath(path, oldDir, newDir string) string {
 	return filepath.Join(newDir, rel)
 }
 
-// selectTreePath marks the row of path chosen.
-func (a *App) selectTreePath(path string) {
-	for i := 0; i < a.treeState.Rows(); i++ {
-		if a.treeState.Item(i) == path {
-			a.treeSelected = i
+// selectTreePath marks the row of path chosen in tp's tree.
+func (a *App) selectTreePath(tp treePane, path string) {
+	for i := 0; i < tp.state.Rows(); i++ {
+		if tp.state.Item(i) == path {
+			*tp.selected = i
 			return
 		}
 	}
@@ -91,7 +92,7 @@ func (a *App) applyRename() {
 		}
 	}
 	a.renameOpen = false
-	go a.renameOnDisk(old, newPath)
+	a.runFileWork(func() { a.renameOnDisk(old, newPath) })
 }
 
 // renameOnDisk moves a file or folder and updates the app.
@@ -122,23 +123,10 @@ func (a *App) finishRename(old, newPath string) {
 			}
 		}
 	}
-	var open []string
-	for p := range a.treeState.Open.All() {
-		if pathWithin(p, old) {
-			open = append(open, rebasePath(p, old, newPath))
-		} else {
-			open = append(open, p)
-		}
-	}
-	a.treeState.Open.Clear()
-	for _, p := range open {
-		a.treeState.Open.Add(p)
-	}
+	a.rebaseTreeStates(old, newPath)
+	a.refreshTrees()
 	a.treeSelected = -1
-	if a.tree != nil {
-		a.tree.Refresh()
-		a.treeGeneration++
-	}
+	a.dirSelected = -1
 	if a.activeTab() != nil {
 		a.focusEditor = true
 	}
@@ -156,6 +144,17 @@ func (a *App) beginCreate(dir string, isDir bool) {
 	a.createErr = ""
 	a.createFocus = true
 	a.update()
+}
+
+// runFileWork runs a file operation off the UI thread, where it lands back
+// with onUI. Without a window, as in the view tests, it runs at once rather
+// than racing the frames the tester builds.
+func (a *App) runFileWork(fn func()) {
+	if a.win == nil {
+		fn()
+		return
+	}
+	go fn()
 }
 
 // createNameError returns what is wrong with creating name in dir, or "".
@@ -186,7 +185,7 @@ func (a *App) applyCreate() {
 	path := filepath.Join(a.createDir, name)
 	isDir := a.createIsDir
 	a.createOpen = false
-	go a.createPath(path, isDir)
+	a.runFileWork(func() { a.createPath(path, isDir) })
 }
 
 // createPath makes an empty file, or a folder, and shows it in the tree.
@@ -210,15 +209,46 @@ func (a *App) createPath(path string, isDir bool) {
 // finishCreate opens a new file in the active pane and shows the new entry
 // in the tree, expanding the folder it sits in.
 func (a *App) finishCreate(path string, isDir bool) {
-	if a.tree != nil {
-		a.treeState.Open.Add(filepath.Dir(path))
-		a.tree.Refresh()
-		a.treeGeneration++
-	}
+	// A new entry shows at once: its folder is open in the tree that lists
+	// it, and both trees read their folders again.
+	a.expandTreeParents(filepath.Dir(path))
+	a.refreshTrees()
 	if !isDir {
 		a.OpenPaths([]string{path})
 	}
 	a.update()
+}
+
+// expandTreeParents opens dir in the trees that list it, so that an entry
+// created inside a closed folder shows at once.
+func (a *App) expandTreeParents(dir string) {
+	if a.tree != nil && pathWithin(dir, a.tree.Root()) {
+		a.treeState.Open.Add(dir)
+	}
+	if a.dirTree != nil && pathWithin(dir, a.dirTree.Root()) {
+		a.dirState.Open.Add(dir)
+	}
+}
+
+// rebaseTreeStates moves the folders the trees show open when a folder
+// above them is renamed.
+func (a *App) rebaseTreeStates(old, newPath string) {
+	rebase := func(state *ui.OutlineState[string]) {
+		var open []string
+		for p := range state.Open.All() {
+			if pathWithin(p, old) {
+				open = append(open, rebasePath(p, old, newPath))
+			} else {
+				open = append(open, p)
+			}
+		}
+		state.Open.Clear()
+		for _, p := range open {
+			state.Open.Add(p)
+		}
+	}
+	rebase(&a.treeState)
+	rebase(&a.dirState)
 }
 
 // dirtyWithin reports whether a document at path, or under a folder, has
@@ -286,14 +316,11 @@ func (a *App) deletePath(path string, isDir bool) {
 }
 
 // finishDelete closes the tabs of a deleted file or folder and refreshes
-// the tree.
+// the trees.
 func (a *App) finishDelete(path string) {
 	a.closeTabsWithin(path)
 	a.forgetTreePaths(path)
-	if a.tree != nil {
-		a.tree.Refresh()
-		a.treeGeneration++
-	}
+	a.refreshTrees()
 	a.updateTitle()
 	a.saveSession()
 	a.SetToast(locales.Deleted(filepath.Base(path)))
@@ -326,17 +353,22 @@ func (a *App) closeTabsWithin(path string) {
 
 // forgetTreePaths closes any tree folder within path in the outline.
 func (a *App) forgetTreePaths(path string) {
-	var keep []string
-	for p := range a.treeState.Open.All() {
-		if !pathWithin(p, path) {
-			keep = append(keep, p)
+	forget := func(state *ui.OutlineState[string]) {
+		var keep []string
+		for p := range state.Open.All() {
+			if !pathWithin(p, path) {
+				keep = append(keep, p)
+			}
+		}
+		state.Open.Clear()
+		for _, p := range keep {
+			state.Open.Add(p)
 		}
 	}
-	a.treeState.Open.Clear()
-	for _, p := range keep {
-		a.treeState.Open.Add(p)
-	}
+	forget(&a.treeState)
+	forget(&a.dirState)
 	a.treeSelected = -1
+	a.dirSelected = -1
 }
 
 // openInOtherPane opens path in the pane that is not active, creating the

@@ -289,6 +289,42 @@ func TestSidebarTipSitsBesideTheRow(t *testing.T) {
 	}
 }
 
+// TestSidebarTabTipSitsBelow hovers the workspace tab: the path tip shows
+// under the tab, left edges aligned, so it covers neither the toolbar
+// above nor the tabs beside it.
+func TestSidebarTabTipSitsBelow(t *testing.T) {
+	dir := t.TempDir()
+	a := New(settings.Default(), t.TempDir())
+	a.setWorkspace(dir)
+	a.Settings.SidebarOpen = true
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+
+	tab, ok := tt.Find(locales.Workspace())
+	if !ok {
+		t.Fatalf("no workspace tab; texts %q", tt.Texts())
+	}
+	tt.Move(tab.X+tab.W/2, tab.Y+tab.H/2)
+	tt.Advance(700 * time.Millisecond)
+	tt.Frame()
+
+	tip, ok := tt.Find(dir)
+	if !ok {
+		t.Fatalf("hovering the tab showed no path tip; texts %q", tt.Texts())
+	}
+	if tip.Y < tab.Y+tab.H {
+		t.Fatalf("tip y=%v is not under the tab (tab ends at %v)", tip.Y, tab.Y+tab.H)
+	}
+	if tip.Y < toolbarHeight {
+		t.Fatalf("tip y=%v is over the toolbar", tip.Y)
+	}
+	// Find returns the tip's text, inset by the tip's own padding; a tip
+	// centered on the tab would start far to the left of it.
+	if tip.X < tab.X || tip.X > tab.X+24 {
+		t.Fatalf("tip text x=%v is not left aligned with the tab at x=%v", tip.X, tab.X)
+	}
+}
+
 // TestOpenFilesShowNamesOnly opens two files of the same name from
 // different folders: the list shows just the name for each, and the tip on
 // each row tells them apart by path.
