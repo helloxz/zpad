@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/helloxz/zpad/internal/session"
 	"github.com/helloxz/zpad/internal/settings"
 	"github.com/helloxz/zpad/locales"
 )
@@ -265,5 +266,92 @@ func TestHomeSidebarMenu(t *testing.T) {
 	want := []string{locales.Refresh(), locales.ShowHidden(), "-", locales.CloseSidebar()}
 	if menu := tt.Menu(); !slices.Equal(menu, want) {
 		t.Fatalf("menu %q, want %q", menu, want)
+	}
+}
+
+// Renaming the workspace's own folder from the Home tab moves the
+// workspace with it: its tree reads the new path instead of going empty.
+func TestHomeRenameWorkspaceRoot(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "proj")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := treeFile(t, root, "a.txt")
+
+	a := New(settings.Default(), t.TempDir())
+	a.setHomeRoot(dir)
+	a.Settings.SidebarOpen = true
+	a.setWorkspace(root)
+	a.addDocument(docAt(file, "x"))
+
+	renamed := filepath.Join(dir, "proj2")
+	a.beginRename(root)
+	a.renameValue = "proj2"
+	a.applyRename()
+
+	if a.root != renamed {
+		t.Fatalf("workspace root %q, want %q", a.root, renamed)
+	}
+	if a.tree == nil || a.tree.Root() != renamed || a.tree.Name() != "proj2" {
+		t.Fatalf("workspace tree %v, want its root at %q", a.tree, renamed)
+	}
+	roots := a.tree.Roots()
+	if len(roots) != 1 || roots[0] != filepath.Join(renamed, "a.txt") {
+		t.Fatalf("workspace list %v, want the renamed folder's file", roots)
+	}
+	if got := a.left.tabs[0].doc.Path; got != filepath.Join(renamed, "a.txt") {
+		t.Fatalf("the open tab still shows %q", got)
+	}
+	// The tab is still the workspace's, and its list is back under the new
+	// name: the header no longer shows the old folder.
+	tt := ui.NewTester(a.View, 900, 600)
+	tt.Frame()
+	if !tt.HasText("proj2") {
+		t.Fatalf("the workspace tab does not show its new name; texts %q", tt.Texts())
+	}
+	st, err := session.Load(a.SettingsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Root != renamed {
+		t.Fatalf("the session keeps root %q, want %q", st.Root, renamed)
+	}
+}
+
+// Renaming a folder above the workspace moves the workspace with it too.
+func TestHomeRenameParentOfWorkspaceRoot(t *testing.T) {
+	dir := t.TempDir()
+	parent := filepath.Join(dir, "parent")
+	root := filepath.Join(parent, "app")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	treeFile(t, root, "a.txt")
+
+	a := New(settings.Default(), t.TempDir())
+	a.setHomeRoot(dir)
+	a.Settings.SidebarOpen = true
+	a.setWorkspace(root)
+
+	a.beginRename(parent)
+	a.renameValue = "moved"
+	a.applyRename()
+
+	moved := filepath.Join(dir, "moved")
+	newRoot := filepath.Join(moved, "app")
+	if a.root != newRoot {
+		t.Fatalf("workspace root %q, want %q", a.root, newRoot)
+	}
+	if a.tree == nil || a.tree.Root() != newRoot {
+		t.Fatalf("workspace tree %v, want its root at %q", a.tree, newRoot)
+	}
+	roots := a.tree.Roots()
+	if len(roots) != 1 || roots[0] != filepath.Join(newRoot, "a.txt") {
+		t.Fatalf("workspace list %v, want the file under the new root", roots)
+	}
+	children := a.dirTree.Children(dir)
+	if slices.Contains(children, parent) || !slices.Contains(children, moved) {
+		t.Fatalf("the Home tree shows %v, want %q in place of %q", children, moved, parent)
 	}
 }

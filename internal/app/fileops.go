@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/helloxz/zpad/internal/files"
 	"github.com/helloxz/zpad/locales"
 )
 
@@ -122,6 +123,14 @@ func (a *App) finishRename(old, newPath string) {
 				a.revealDoc = tab.doc.ID
 			}
 		}
+	}
+	// A workspace whose folder, or one above it, was renamed moves with it:
+	// its root is the new path, and its list reads that folder again. Without
+	// this the tree stays rooted at the old name, which is gone.
+	if a.root != "" && pathWithin(a.root, old) {
+		a.root = rebasePath(a.root, old, newPath)
+		a.tree = files.New(a.root, a.Settings.ShowHidden)
+		a.treeGeneration++
 	}
 	a.rebaseTreeStates(old, newPath)
 	a.refreshTrees()
