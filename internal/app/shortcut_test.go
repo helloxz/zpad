@@ -36,6 +36,9 @@ func TestShortcutTooltipsFollowThePlatform(t *testing.T) {
 	if got, want := openInBrowserShortcut(), shortcutText("CmdOrCtrl+Shift+B"); got != want {
 		t.Errorf("browser tooltip shortcut = %q, want %q", got, want)
 	}
+	if got, want := softWrapShortcut(), shortcutText("Alt+Z"); got != want {
+		t.Errorf("word wrap tooltip shortcut = %q, want %q", got, want)
+	}
 	if runtime.GOOS == "darwin" {
 		return
 	}

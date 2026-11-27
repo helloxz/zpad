@@ -134,6 +134,10 @@ type App struct {
 	// change.
 	customMenuBar bool
 	menuBarNames  []string
+	// softWrapItem is the View menu's word wrap checkbox, so the status bar
+	// button and the switch in settings can keep the native menu's check
+	// mark in step with the setting without rebuilding the menu.
+	softWrapItem *mygo.MenuItem
 	// checkUpdates runs the update check, from the menu and the toolbar.
 	// It is a field because updater.CheckForUpdates panics when the plugin
 	// is not registered, as in the view tests.
@@ -1185,6 +1189,36 @@ func (a *App) toggleHidden() {
 	}
 	a.saveSettings()
 	a.update()
+}
+
+// setSoftWrap turns the global word wrap setting on or off, as the switch in
+// settings does, and saves it. Every tab's editor state follows on the next
+// frame, so a shortcut, the View menu and the status bar button all share the
+// one setting.
+func (a *App) setSoftWrap(on bool) {
+	if a.Settings.SoftWrap == on {
+		return
+	}
+	a.Settings.SoftWrap = on
+	a.syncSoftWrapMenu()
+	a.saveSettings()
+	a.update()
+}
+
+// syncSoftWrapMenu keeps the View menu's check mark on the setting, whichever
+// control changed it: the menu itself, the status bar button or the switch in
+// settings. Windows rebuilds its menus when one opens, but the native menu bar
+// macOS keeps installed needs this.
+func (a *App) syncSoftWrapMenu() {
+	if a.softWrapItem != nil {
+		a.softWrapItem.SetChecked(a.Settings.SoftWrap)
+	}
+}
+
+// softWrapShortcut is the View menu's key for word wrap, as tooltips write
+// it.
+func softWrapShortcut() string {
+	return shortcutText("Alt+Z")
 }
 
 // setThemeID switches to the theme id, saves it and redraws. An unknown id

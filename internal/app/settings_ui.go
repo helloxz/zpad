@@ -264,8 +264,8 @@ func (a *App) settingsEditor(c *ui.Context, t *ui.Theme) {
 				a.update()
 			}
 		})
-		a.switchSetting(c, t, locales.SoftWrap(), locales.SoftWrapDescription(),
-			&a.Settings.SoftWrap, false)
+		a.switchSettingAction(c, t, locales.SoftWrap(), locales.SoftWrapDescription(),
+			&a.Settings.SoftWrap, false, false, a.syncSoftWrapMenu)
 
 		a.settingRow(c, t, locales.LineNumbers(), locales.LineNumbersDescription(), false, func() {
 			a.selectSetting(c, t, locales.LineNumbers(), lineNumbersLabel(a.Settings.LineNumbers),

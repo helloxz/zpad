@@ -57,6 +57,11 @@ func (a *App) menuItems() []*mygo.MenuItem {
 		}},
 	}
 
+	softWrapItem := &mygo.MenuItem{Label: locales.SoftWrap(), Type: mygo.MenuItemCheckbox, Accelerator: "Alt+Z", Checked: a.Settings.SoftWrap, Click: func(*mygo.MenuItem, *mygo.Window) {
+		a.setSoftWrap(!a.Settings.SoftWrap)
+	}}
+	a.softWrapItem = softWrapItem
+
 	viewMenu := []*mygo.MenuItem{
 		{Label: locales.ToggleSidebar(), Accelerator: "CmdOrCtrl+B", Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleSidebar() }},
 		{Label: locales.ToggleSplit(), Accelerator: "CmdOrCtrl+\\", Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleSplit() }},
@@ -64,6 +69,7 @@ func (a *App) menuItems() []*mygo.MenuItem {
 			{Label: locales.SplitLeftRight(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSplit(false) }},
 			{Label: locales.SplitTopBottom(), Click: func(*mygo.MenuItem, *mygo.Window) { a.openSplit(true) }},
 		}},
+		softWrapItem,
 		{Label: locales.Refresh(), Click: func(*mygo.MenuItem, *mygo.Window) { a.refreshTree() }},
 		{Label: locales.FindEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) { a.findActive() }},
 		{Label: locales.ReplaceEllipsis(), Click: func(*mygo.MenuItem, *mygo.Window) {

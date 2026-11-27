@@ -201,6 +201,7 @@
   "lineHeightDescription": "Editor line spacing, from 1.2 to 2.0.",
   "softWrap": "Word Wrap",
   "softWrapDescription": "Wraps long lines to the pane width; the file stays unchanged.",
+  "softWrapUnavailable": "Word wrap is unavailable for large or read-only files.",
   "lineNumbers": "Line Numbers",
   "lineNumbersDescription": "Show absolute or relative line numbers, or hide the gutter.",
   "lineNumbersAbsolute": "Absolute",

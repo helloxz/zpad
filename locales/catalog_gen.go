@@ -1566,6 +1566,16 @@ func (msgs Messages) SoftWrapDescription() string {
 	return Catalog.Format(msgs.locale, "softWrapDescription", nil)
 }
 
+// SoftWrapUnavailable says "Word wrap is unavailable for large or read-only files."
+// in the language the app shows.
+func SoftWrapUnavailable() string { return In(i18n.Locale()).SoftWrapUnavailable() }
+
+// SoftWrapUnavailable says "Word wrap is unavailable for large or read-only files."
+// in the language of msgs.
+func (msgs Messages) SoftWrapUnavailable() string {
+	return Catalog.Format(msgs.locale, "softWrapUnavailable", nil)
+}
+
 // LineNumbers says "Line Numbers"
 // in the language the app shows.
 func LineNumbers() string { return In(i18n.Locale()).LineNumbers() }

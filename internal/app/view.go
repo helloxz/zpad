@@ -1372,6 +1372,7 @@ func (a *App) statusBar(c *ui.Context, t *ui.Theme) {
 				}
 			}, menuButtonCursorOptions()).FontSize(11).Padding(0, 3).Cursor(ui.CursorPointer)
 
+			a.softWrapButton(c, t, doc)
 			ui.Spacer(c)
 			if tab.preview {
 				ui.Text(c, locales.PreviewMode()).FontSize(11).TextColor(t.Accent)
@@ -1434,6 +1435,41 @@ func (a *App) browserButton(c *ui.Context, t *ui.Theme, tab *Tab) {
 	})
 	if b.Clicked() {
 		a.openTabInBrowser(tab)
+	}
+}
+
+// softWrapButton toggles the global word wrap setting, like the switch in
+// settings and the View menu's item. It shows the setting rather than the
+// active tab's editor state, since the setting covers every tab; a file past
+// the wrapping threshold or read-only skips wrapping anyway, so the button is
+// disabled there with a tooltip that says why.
+func (a *App) softWrapButton(c *ui.Context, t *ui.Theme, doc *Document) {
+	unavailable := doc != nil && doc.noSoftWrap()
+	tip := locales.SoftWrap() + " (" + softWrapShortcut() + ")"
+	if unavailable {
+		tip = locales.SoftWrapUnavailable()
+	}
+	b := ui.ButtonBase(c.Key("toggle-soft-wrap")).Size(20, 20).Center().Radius(4).
+		Label(locales.SoftWrap()).
+		Tooltip(tip).
+		KeyShortcuts(ui.Alt, ui.KeyZ).
+		Cursor(ui.CursorPointer)
+	if unavailable {
+		b.Disabled(true)
+	}
+	color := t.TextMuted
+	if a.Settings.SoftWrap {
+		color = t.Accent
+	}
+	if b.Hovered() && !unavailable {
+		b.Background(t.SurfaceHover)
+		color = t.Text
+	}
+	b.Children(func() {
+		ui.Icon(c, iconWrap).FontSize(13).TextColor(color)
+	})
+	if b.Clicked() {
+		a.setSoftWrap(!a.Settings.SoftWrap)
 	}
 }
 
