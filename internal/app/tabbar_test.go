@@ -197,3 +197,143 @@ func TestMiddlePressClosesTheOtherPanesTab(t *testing.T) {
 		t.Fatalf("left pane has %d tabs, want its own 2", len(a.left.tabs))
 	}
 }
+
+// doubleClick presses twice at the same point, as a double click does: the
+// tester's clock stands still, so the presses count as one.
+func doubleClick(tt *ui.Tester, x, y float32) {
+	tt.ClickAt(x, y)
+	tt.ClickAt(x, y)
+}
+
+// plusOnBar returns the new tab button of the tab bar at y, rather than the
+// toolbar's button that shares its name.
+func plusOnBar(t *testing.T, tt *ui.Tester, y float32) ui.Rect {
+	t.Helper()
+	for _, info := range tt.AccessAll() {
+		if info.Role != ui.RoleButton || info.Name != locales.NewFile() {
+			continue
+		}
+		if b := info.Bounds; b.Y > y-24 && b.Y < y+24 {
+			return b
+		}
+	}
+	t.Fatalf("no new tab button on the bar at y %.0f", y)
+	return ui.Rect{}
+}
+
+// A double click on the bar's empty space adds a file, as browsers and
+// editors do, and the new tab takes the focus.
+func TestDoubleClickOnTabBarBlankCreatesFile(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a"))
+	tt := ui.NewTester(a.View, 900, 500)
+	tt.Frame()
+	r, ok := tt.Find("a.txt")
+	if !ok {
+		t.Fatalf("no tab for a.txt; texts %q", tt.Texts())
+	}
+	// The bar of one tab is empty well before its right edge.
+	doubleClick(tt, 800, r.Y+r.H/2)
+	tt.Frame()
+	if len(a.left.tabs) != 2 {
+		t.Fatalf("double click on the bar left %d tabs, want 2", len(a.left.tabs))
+	}
+	if a.left.active != 1 || a.left.tabs[1].doc.Path != "" {
+		t.Fatalf("double click chose tab %d %q, want the new untitled",
+			a.left.active, a.left.tabs[1].doc.Path)
+	}
+	if !a.left.tabs[1].state.Focused() {
+		t.Fatal("the new file did not take the focus")
+	}
+}
+
+// A single click on the bar's empty space keeps the tabs as they are: only
+// a double click adds a file.
+func TestSingleClickOnTabBarBlankCreatesNothing(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a"))
+	tt := ui.NewTester(a.View, 900, 500)
+	tt.Frame()
+	r, ok := tt.Find("a.txt")
+	if !ok {
+		t.Fatalf("no tab for a.txt; texts %q", tt.Texts())
+	}
+	tt.ClickAt(800, r.Y+r.H/2)
+	tt.Frame()
+	if len(a.left.tabs) != 1 {
+		t.Fatalf("single click on the bar left %d tabs, want 1", len(a.left.tabs))
+	}
+}
+
+// A double click on a tab is the tab's own: it chooses the tab and adds no
+// file, as it does in the editors that take the gesture.
+func TestDoubleClickOnTabCreatesNothing(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a"))
+	a.addDocument(docAt("/tmp/b.txt", "b"))
+	tt := ui.NewTester(a.View, 900, 500)
+	tt.Frame()
+	r, ok := tt.Find("a.txt")
+	if !ok {
+		t.Fatalf("no tab for a.txt; texts %q", tt.Texts())
+	}
+	doubleClick(tt, r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	if len(a.left.tabs) != 2 {
+		t.Fatalf("double click on a tab left %d tabs, want its 2", len(a.left.tabs))
+	}
+	if a.left.active != 0 {
+		t.Fatalf("double click chose tab %d, want 0", a.left.active)
+	}
+}
+
+// The new tab button keeps its own clicks: a double click on it adds one
+// file, not one for the button and one for the bar behind it.
+func TestDoubleClickOnNewTabButtonCreatesOneFile(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a"))
+	tt := ui.NewTester(a.View, 900, 500)
+	tt.Frame()
+	r, ok := tt.Find("a.txt")
+	if !ok {
+		t.Fatalf("no tab for a.txt; texts %q", tt.Texts())
+	}
+	plus := plusOnBar(t, tt, r.Y+r.H/2)
+	doubleClick(tt, plus.X+plus.W/2, plus.Y+plus.H/2)
+	tt.Frame()
+	if len(a.left.tabs) != 2 {
+		t.Fatalf("double click on the new tab button left %d tabs, want 2", len(a.left.tabs))
+	}
+}
+
+// The bar's empty space adds the file to the pane that bar belongs to, and
+// makes that pane the active one, even from the other pane.
+func TestDoubleClickOnInactivePaneBarCreatesThere(t *testing.T) {
+	a := New(settings.Default(), t.TempDir())
+	a.addDocument(docAt("/tmp/a.txt", "a"))
+	a.toggleSplit()
+	a.addDocument(docAt("/tmp/b.txt", "b"))
+	if !a.split || a.activePane != 1 {
+		t.Fatalf("split %v, active pane %d; want the right one active", a.split, a.activePane)
+	}
+	left := len(a.left.tabs)
+	right := len(a.right.tabs)
+	tt := ui.NewTester(a.View, 1200, 500)
+	tt.Frame()
+	r, ok := tt.Find("b.txt")
+	if !ok {
+		t.Fatalf("no tab for b.txt; texts %q", tt.Texts())
+	}
+	// x 500 is in the left pane's bar, left of the split at about 600.
+	doubleClick(tt, 500, r.Y+r.H/2)
+	tt.Frame()
+	if len(a.left.tabs) != left+1 {
+		t.Fatalf("left pane has %d tabs, want %d", len(a.left.tabs), left+1)
+	}
+	if len(a.right.tabs) != right {
+		t.Fatalf("right pane has %d tabs, want its %d", len(a.right.tabs), right)
+	}
+	if a.activePane != 0 {
+		t.Fatalf("active pane %d after the click, want the left one", a.activePane)
+	}
+}

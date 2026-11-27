@@ -765,6 +765,19 @@ func (a *App) tabBar(c *ui.Context, t *ui.Theme, index int, p *Pane) {
 			drag, over := ui.DragOver[paneDrag](area)
 			var inner ui.Element
 			var rects []ui.Rect
+			// A double click on the bar's empty space adds a file to this
+			// pane, as browsers and editors do. Tabs take their presses
+			// with their own handler, and the new tab button takes its,
+			// so only the space past them reaches this one: a bar the
+			// tabs fill has none, and the button and the shortcut remain.
+			area.HandleInput(func(ev ui.InputEvent) bool {
+				if ev.Kind != ui.InputPointerDown || ev.Button != 0 || ev.Clicks != 2 {
+					return false
+				}
+				a.addDocumentAt(index, a.newUntitledDocument())
+				a.update()
+				return true
+			})
 			area.Children(func() {
 				inner = ui.Row(c).Height(34).Children(func() {
 					for i := 0; i < len(p.tabs); i++ {
@@ -1005,7 +1018,11 @@ func (a *App) tabContextMenu(m *ui.Menu, paneIdx, i int) {
 
 func (a *App) newTabButton(c *ui.Context, t *ui.Theme, paneIdx int) {
 	b := ui.ButtonBase(c.Key(fmt.Sprintf("new-tab-%d", paneIdx))).Size(28, 32).Center().Radius(0).
-		Label(locales.NewFile()).Tooltip(locales.NewFile()).Cursor(ui.CursorPointer)
+		Label(locales.NewFile()).Tooltip(locales.NewFile()).Cursor(ui.CursorPointer).
+		// Its own handler keeps the bar's double click from reaching the
+		// empty space past it, so two quick presses here stay the
+		// button's own and add one file, not one for each.
+		HandleInput(func(ui.InputEvent) bool { return false })
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)
 	}
