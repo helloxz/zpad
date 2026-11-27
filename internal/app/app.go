@@ -29,6 +29,10 @@ type Tab struct {
 	doc           *Document
 	state         *editor.State
 	pendingScroll *float64
+	// temporary marks a preview tab: a single click in the workspace tree
+	// opens one, the next single click replaces it, and a double click, an
+	// edit, a save or moving it to the other pane keeps it for good.
+	temporary bool
 	// vim is the tab's modal state while Vim mode is on; nil when it is off
 	// or the tab has not been shown since it was turned on.
 	vim *vim.Session
@@ -169,8 +173,12 @@ type App struct {
 	loading     int
 	// loadingPaths holds the files being read, so that one asked for twice,
 	// as a second instance and the system may, is read and opened once.
-	loadingMu        sync.Mutex
-	loadingPaths     map[string]bool
+	loadingMu    sync.Mutex
+	loadingPaths map[string]bool
+	// pinPending holds the paths a double click asked to keep, whose read
+	// is still on its way: the tab they open is permanent rather than a
+	// preview one.
+	pinPending       map[string]bool
 	externalChecking bool
 	lastDirty        bool
 	pendingOpen      []string
@@ -315,6 +323,7 @@ func New(s settings.Settings, settingsDir string) *App {
 		fontSize:      float64(s.FontSize),
 		lineHeight:    float64(s.LineHeight),
 		loadingPaths:  map[string]bool{},
+		pinPending:    map[string]bool{},
 		checkUpdates:  updater.CheckForUpdates,
 	}
 }
@@ -565,6 +574,20 @@ func (a *App) addDocument(doc *Document) {
 // addDocumentAt adds doc to a pane, -1 for the active one, sharing the
 // document already open elsewhere.
 func (a *App) addDocumentAt(paneIdx int, doc *Document) {
+	a.addDocumentAtMode(paneIdx, doc, false)
+}
+
+// addPreviewDocumentAt adds doc as a preview tab when preview tabs are on,
+// and as an ordinary one otherwise.
+func (a *App) addPreviewDocumentAt(paneIdx int, doc *Document) {
+	a.addDocumentAtMode(paneIdx, doc, true)
+}
+
+// addDocumentAtMode adds doc to a pane, -1 for the active one, sharing the
+// document already open elsewhere. A preview tab replaces the pane's one
+// preview tab, so browsing files leaves no stack of tabs behind; doc goes
+// in at its place, without the pane emptying and its split collapsing.
+func (a *App) addDocumentAtMode(paneIdx int, doc *Document, preview bool) {
 	a.errMsg = ""
 	if doc.Path != "" {
 		if existing := a.findDocument(doc.Path); existing != nil {
@@ -574,9 +597,19 @@ func (a *App) addDocumentAt(paneIdx int, doc *Document) {
 	if (paneIdx != 0 && paneIdx != 1) || (paneIdx == 1 && !a.split) {
 		paneIdx = a.activePane
 	}
+	preview = preview && a.Settings.PreviewTabs
+	if doc.Path != "" && a.pinPending[doc.Path] {
+		// A double click kept the file, perhaps before its read finished,
+		// as on a large one: it opens for good now.
+		preview = false
+		delete(a.pinPending, doc.Path)
+	}
 	p := a.pane(paneIdx)
 	for i, tab := range p.tabs {
 		if tab.doc == doc {
+			if !preview {
+				a.pinDocument(doc)
+			}
 			p.active = i
 			a.activePane = paneIdx
 			a.focusEditor = true
@@ -584,13 +617,86 @@ func (a *App) addDocumentAt(paneIdx int, doc *Document) {
 			return
 		}
 	}
+	if !preview {
+		a.pinDocument(doc)
+	}
+	if preview {
+		if i := p.previewTab(); i >= 0 && !p.tabs[i].doc.Buffer.Modified() {
+			a.replacePreviewTab(p, i, doc)
+			p.active = i
+			a.activePane = paneIdx
+			a.revealPane, a.revealDoc = paneIdx, doc.ID
+			a.focusEditor = true
+			a.updateTitle()
+			return
+		}
+	}
 	st := &editor.State{Buffer: doc.Buffer, ReadOnly: doc.ReadOnly}
-	p.tabs = append(p.tabs, &Tab{doc: doc, state: st})
+	p.tabs = append(p.tabs, &Tab{doc: doc, state: st, temporary: preview})
 	p.active = len(p.tabs) - 1
 	a.activePane = paneIdx
 	a.revealPane, a.revealDoc = paneIdx, doc.ID
 	a.focusEditor = true
 	a.updateTitle()
+}
+
+// previewTab returns the index of p's preview tab, or -1 when it has none:
+// a pane keeps at most one.
+func (p *Pane) previewTab() int {
+	for i, tab := range p.tabs {
+		if tab.temporary {
+			return i
+		}
+	}
+	return -1
+}
+
+// replacePreviewTab turns p's tab at i into doc's preview tab, in place, so
+// that the pane never empties and a split it holds does not collapse. The
+// document it showed is forgotten as a closed one is.
+func (a *App) replacePreviewTab(p *Pane, i int, doc *Document) {
+	old := p.tabs[i]
+	p.tabs[i] = &Tab{
+		doc:       doc,
+		state:     &editor.State{Buffer: doc.Buffer, ReadOnly: doc.ReadOnly},
+		temporary: true,
+	}
+	a.forgetClosedDocument(old.doc)
+}
+
+// pinDocument makes every tab showing doc permanent, so that a file opened
+// for good is never replaced in either pane.
+func (a *App) pinDocument(doc *Document) {
+	for _, p := range []*Pane{&a.left, &a.right} {
+		for _, tab := range p.tabs {
+			if tab.doc == doc {
+				tab.temporary = false
+			}
+		}
+	}
+}
+
+// pinPath keeps the tabs already showing path, and asks the tab still being
+// read for it to open for good: a double click is answered at once, though
+// a large file arrives a moment later.
+func (a *App) pinPath(path string) {
+	if doc := a.findDocument(path); doc != nil {
+		a.pinDocument(doc)
+		return
+	}
+	a.pinPending[path] = true
+}
+
+// pinModifiedTabs makes a preview tab permanent once it has unsaved edits,
+// so that typing is never lost to the next single click.
+func (a *App) pinModifiedTabs() {
+	for _, p := range []*Pane{&a.left, &a.right} {
+		for _, tab := range p.tabs {
+			if tab.temporary && tab.doc.Buffer.Modified() {
+				tab.temporary = false
+			}
+		}
+	}
 }
 
 func (a *App) newUntitledDocument() *Document {
@@ -622,6 +728,14 @@ func (a *App) removeTab(paneIdx, i int) {
 	if paneIdx == a.activePane {
 		a.focusEditor = true
 	}
+	a.forgetClosedDocument(doc)
+	a.updateTitle()
+}
+
+// forgetClosedDocument releases what the app held for a document no tab
+// shows any more: its search results, its diff and preview state, and its
+// recovery copy when it was the last tab.
+func (a *App) forgetClosedDocument(doc *Document) {
 	a.pruneSearchDocument(doc)
 	a.diffDocumentClosed(doc)
 	a.dropPreviewOptions(doc)
@@ -632,7 +746,6 @@ func (a *App) removeTab(paneIdx, i int) {
 			scheduleLargeDocGC()
 		}
 	}
-	a.updateTitle()
 }
 
 var (
@@ -702,7 +815,7 @@ func (a *App) ensureSplit() {
 // openInPane opens path as a tab in a pane, sharing the document already
 // open elsewhere.
 func (a *App) openInPane(path string, paneIdx int) {
-	a.openPaths([]string{path}, paneIdx)
+	a.openPaths([]string{path}, paneIdx, false)
 }
 
 // moveTab moves the tab dragged from one pane into the other, at the end,
@@ -763,6 +876,9 @@ func (a *App) moveTabAt(srcPane, idx, dstPane, to int) {
 	if to < 0 || to > len(dst.tabs) {
 		to = len(dst.tabs)
 	}
+	// A tab the user moved is theirs: it no longer makes way for the next
+	// single click in its new pane.
+	tab.temporary = false
 	target := -1
 	for i, other := range dst.tabs {
 		if other.doc == tab.doc {

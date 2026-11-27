@@ -366,6 +366,8 @@ func (a *App) settingsFiles(c *ui.Context, t *ui.Theme) {
 
 func (a *App) settingsWorkspace(c *ui.Context, t *ui.Theme) {
 	a.settingsSection(c, t, iconFolder, locales.WorkspaceSection(), func() {
+		a.switchSetting(c, t, locales.PreviewTabs(), locales.PreviewTabsDescription(),
+			&a.Settings.PreviewTabs, false)
 		a.switchSetting(c, t, locales.SidebarDefault(), locales.SidebarDefaultDescription(),
 			&a.Settings.SidebarOpen, false)
 		a.switchSetting(c, t, locales.RestoreSession(), locales.RestoreSessionDescription(),

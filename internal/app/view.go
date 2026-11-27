@@ -27,6 +27,8 @@ const (
 // View builds the window: toolbar, sidebar and content, status bar.
 func (a *App) View(c *ui.Context) {
 	a.frame = c
+	// Edits keep a preview tab: it is no longer the next click's to replace.
+	a.pinModifiedTabs()
 	if !a.viewLogged {
 		a.viewLogged = true
 		w, h := c.Size()
@@ -366,6 +368,16 @@ func (a *App) documentTooltip(doc *Document) string {
 	return doc.Path
 }
 
+// tabTooltip tells a tab's path, and that a preview tab gives way to the
+// next single click.
+func (a *App) tabTooltip(tab *Tab) string {
+	tip := a.documentTooltip(tab.doc)
+	if tab.temporary {
+		tip += " · " + locales.PreviewTabHint()
+	}
+	return tip
+}
+
 // pathTooltip shows text beside anchor's right edge, aligned with it, so a
 // long path does not cover the sidebar list it belongs to. Element.Tooltip
 // always goes above its anchor, centered, so this places the tip itself and
@@ -507,14 +519,26 @@ func (a *App) treeRow(c *ui.Context, t *ui.Theme, path string) {
 			a.confirmDelete(path, isDir)
 		}
 	}, sidebarMenuOptions(t))
-	if row.Clicked() {
+	switch {
+	case row.DoubleClicked():
+		// The first click of the two opened or toggled the row; the second
+		// keeps a file's preview tab, and leaves a folder as the first
+		// click left it rather than toggling it back. A double click that
+		// arrives as one frame of input opens the file here, where the
+		// first click had no frame of its own.
+		if !isDir {
+			a.pinPath(path)
+			a.OpenPaths([]string{path})
+			a.update()
+		}
+	case row.Clicked():
 		// The whole row is this view's own, so the outline's row sees no
 		// click and the choice is made here too.
 		a.selectTreePath(path)
 		a.update()
 		switch {
 		case !isDir:
-			a.OpenPaths([]string{path})
+			a.openPreview(path)
 		case row.ClickModifiers()&ui.Alt != 0:
 			a.toggleFolderAll(path)
 		default:
@@ -885,7 +909,7 @@ func (a *App) tabItem(c *ui.Context, t *ui.Theme, paneIdx int, p *Pane, i int, t
 	key := fmt.Sprintf("tab-%d-%s", paneIdx, tab.doc.ID)
 	b := ui.ButtonBase(c.Key(key)).Height(32).Padding(0, 10).Gap(6).
 		Radius(0).Background(bg).Label(tab.doc.Name()).
-		Tooltip(a.documentTooltip(tab.doc)).Cursor(ui.CursorPointer).
+		Tooltip(a.tabTooltip(tab)).Cursor(ui.CursorPointer).
 		Drag(paneDrag{kind: dragTab, pane: paneIdx, id: tab.doc.ID}).
 		PopoverMenu(func(m *ui.Menu) { a.tabContextMenu(m, paneIdx, i) }, menuCursorOptions()).
 		// A middle press closes the tab at once, as editors do, without
@@ -917,8 +941,12 @@ func (a *App) tabItem(c *ui.Context, t *ui.Theme, paneIdx int, p *Pane, i int, t
 				a.toggleTabPreview(tab)
 			}
 		}
-		ui.Text(c, tab.doc.Name()).FontSize(12).TextColor(text).SingleLine().
+		name := ui.Text(c, tab.doc.Name()).FontSize(12).TextColor(text).SingleLine().
 			MaxWidth(tabTextWidth).TruncateMiddle()
+		if tab.temporary {
+			// A preview tab stands apart from the ones that stay.
+			name.Italic()
+		}
 		close := ui.ButtonBase(c.Key(key+"-close")).Size(16, 16).Center().Shrink(0).
 			Radius(4).Label(locales.Close()).Tooltip(locales.Close()).Cursor(ui.CursorPointer)
 		close.Children(func() {
@@ -939,6 +967,12 @@ func (a *App) tabItem(c *ui.Context, t *ui.Theme, paneIdx int, p *Pane, i int, t
 		a.updateTitle()
 		a.update()
 	}
+	if b.DoubleClicked() && !closed && tab.temporary {
+		// Double clicking a preview tab keeps it, where a single click only
+		// chose it.
+		tab.temporary = false
+		a.update()
+	}
 	if a.revealDoc != "" && a.revealPane == paneIdx && a.revealDoc == tab.doc.ID {
 		b.ScrollIntoView(ui.ScrollIntoViewOptions{Inline: ui.ScrollNearest})
 		a.revealDoc = ""
@@ -957,6 +991,13 @@ func (a *App) tabContextMenu(m *ui.Menu, paneIdx, i int) {
 	// The items below can close or move this tab while the menu is built,
 	// so keep it now for the entry that opens it.
 	tab := p.tabs[i]
+	if tab.temporary {
+		if m.Item(locales.KeepTabOpen()).Chosen() {
+			a.pinDocument(tab.doc)
+			a.update()
+		}
+		m.Separator()
+	}
 	if m.Item(locales.CloseTab()).Chosen() {
 		a.CloseTab(paneIdx, i)
 	}

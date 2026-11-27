@@ -91,7 +91,14 @@ func (a *App) OpenFolderDialog() {
 
 // OpenPaths opens files and directories. It reads files off the UI thread.
 func (a *App) OpenPaths(paths []string) {
-	a.openPaths(paths, -1)
+	a.openPaths(paths, -1, false)
+}
+
+// openPreview opens path in the active pane as a preview tab, which the
+// next single click in the workspace tree replaces. It opens for good when
+// preview tabs are off.
+func (a *App) openPreview(path string) {
+	a.openPaths([]string{path}, -1, true)
 }
 
 // OpenCommandLine opens the files and folders this process was started
@@ -159,8 +166,9 @@ func (a *App) endLoading(path string) {
 
 // openPaths opens files and directories in a pane, -1 for the active one.
 // Documents already open go at once; the others are read off the UI
-// thread.
-func (a *App) openPaths(paths []string, paneIdx int) {
+// thread. A preview open replaces the pane's preview tab instead of
+// adding one.
+func (a *App) openPaths(paths []string, paneIdx int, preview bool) {
 	if len(paths) == 0 {
 		return
 	}
@@ -168,7 +176,7 @@ func (a *App) openPaths(paths []string, paneIdx int) {
 		pending := make([]string, 0, len(paths))
 		for _, path := range paths {
 			if doc := a.findDocument(path); doc != nil {
-				a.addDocumentAt(paneIdx, doc)
+				a.addDocumentAtMode(paneIdx, doc, preview)
 				continue
 			}
 			if !a.beginLoading(path) {
@@ -177,7 +185,7 @@ func (a *App) openPaths(paths []string, paneIdx int) {
 			pending = append(pending, path)
 		}
 		if len(pending) > 0 {
-			a.loadPaths(pending, paneIdx)
+			a.loadPaths(pending, paneIdx, preview)
 		}
 	})
 }
@@ -218,7 +226,7 @@ func (a *App) reportOpenFailures(failures []openFailure) {
 
 // loadPaths reads files and opens them, in paneIdx when it is a pane. It
 // runs on the UI thread, as openPaths calls it.
-func (a *App) loadPaths(paths []string, paneIdx int) {
+func (a *App) loadPaths(paths []string, paneIdx int, preview bool) {
 	maxMB := a.Settings.LargeFileMB
 	a.loading++
 	defer func() {
@@ -227,7 +235,7 @@ func (a *App) loadPaths(paths []string, paneIdx int) {
 		}
 		a.update()
 	}()
-	go func() {
+	read := func() {
 		var dirs, files []string
 		var failures []openFailure
 		for _, path := range paths {
@@ -284,11 +292,19 @@ func (a *App) loadPaths(paths []string, paneIdx int) {
 			}
 			a.onUI(func() {
 				a.endLoading(path)
-				a.addDocumentAt(paneIdx, doc)
+				a.addDocumentAtMode(paneIdx, doc, preview)
 			})
 		}
 		a.reportOpenFailures(failures)
-	}()
+	}
+	// A window's next frame brings the files in; without one, as in the
+	// view tests, they are read at once rather than raced with the frames
+	// the tester builds.
+	if a.win == nil {
+		read()
+		return
+	}
+	go read()
 }
 
 func (a *App) confirmLargeFile(path string, maxMB int) bool {
@@ -575,6 +591,8 @@ func (a *App) saveTab(tab *Tab, saveAs bool, then func()) {
 	if a.busy {
 		return
 	}
+	// Saving a preview tab keeps it, as editors do: the file is in use now.
+	tab.temporary = false
 	a.busy = true
 	defaultPath := a.saveDialogPath(tab.doc)
 	// An untitled document's chosen language names the file it saves: the

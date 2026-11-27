@@ -47,6 +47,10 @@ type Settings struct {
 	ShowHidden     bool    `json:"showHidden"`
 	RestoreSession bool    `json:"restoreSession"`
 	ConfirmClose   bool    `json:"confirmClose"`
+	// PreviewTabs opens a file clicked in the workspace tree as a preview
+	// tab: the next click replaces it, and a double click, an edit or a
+	// save keeps it. Turning it off opens every click for good.
+	PreviewTabs bool `json:"previewTabs"`
 	// KeepUnsaved keeps unsaved content, including untitled documents, in
 	// the user data directory and restores it on the next launch, instead
 	// of asking to save it when the window closes or the app quits.
@@ -81,6 +85,7 @@ func Default() Settings {
 		ShowHidden:     false,
 		RestoreSession: true,
 		ConfirmClose:   true,
+		PreviewTabs:    true,
 		KeepUnsaved:    true,
 	}
 }

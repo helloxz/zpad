@@ -356,6 +356,16 @@ func (msgs Messages) PreviewTooLarge() string {
 	return Catalog.Format(msgs.locale, "previewTooLarge", nil)
 }
 
+// PreviewTabHint says "Preview tab: double-click or edit to keep it"
+// in the language the app shows.
+func PreviewTabHint() string { return In(i18n.Locale()).PreviewTabHint() }
+
+// PreviewTabHint says "Preview tab: double-click or edit to keep it"
+// in the language of msgs.
+func (msgs Messages) PreviewTabHint() string {
+	return Catalog.Format(msgs.locale, "previewTabHint", nil)
+}
+
 // OpenLinkFailed says "Could not open the link"
 // in the language the app shows.
 func OpenLinkFailed() string { return In(i18n.Locale()).OpenLinkFailed() }
@@ -394,6 +404,16 @@ func CloseTabsRight() string { return In(i18n.Locale()).CloseTabsRight() }
 // in the language of msgs.
 func (msgs Messages) CloseTabsRight() string {
 	return Catalog.Format(msgs.locale, "closeTabsRight", nil)
+}
+
+// KeepTabOpen says "Keep Tab Open"
+// in the language the app shows.
+func KeepTabOpen() string { return In(i18n.Locale()).KeepTabOpen() }
+
+// KeepTabOpen says "Keep Tab Open"
+// in the language of msgs.
+func (msgs Messages) KeepTabOpen() string {
+	return Catalog.Format(msgs.locale, "keepTabOpen", nil)
 }
 
 // MoveToMainPane says "Move to Main Pane"
@@ -1904,6 +1924,26 @@ func WorkspaceSection() string { return In(i18n.Locale()).WorkspaceSection() }
 // in the language of msgs.
 func (msgs Messages) WorkspaceSection() string {
 	return Catalog.Format(msgs.locale, "workspaceSection", nil)
+}
+
+// PreviewTabs says "Preview Tab on Click"
+// in the language the app shows.
+func PreviewTabs() string { return In(i18n.Locale()).PreviewTabs() }
+
+// PreviewTabs says "Preview Tab on Click"
+// in the language of msgs.
+func (msgs Messages) PreviewTabs() string {
+	return Catalog.Format(msgs.locale, "previewTabs", nil)
+}
+
+// PreviewTabsDescription says "A file clicked in the workspace tree opens as a preview tab: the next click replaces it, and a double click, an edit …"
+// in the language the app shows.
+func PreviewTabsDescription() string { return In(i18n.Locale()).PreviewTabsDescription() }
+
+// PreviewTabsDescription says "A file clicked in the workspace tree opens as a preview tab: the next click replaces it, and a double click, an edit …"
+// in the language of msgs.
+func (msgs Messages) PreviewTabsDescription() string {
+	return Catalog.Format(msgs.locale, "previewTabsDescription", nil)
 }
 
 // SidebarDefault says "Show Sidebar by Default"
